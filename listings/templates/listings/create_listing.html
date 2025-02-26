@@ -1,35 +1,41 @@
 <!-- listings/templates/listings/create_listing.html -->
 
-{% extends 'base.html' %} {% load widget_tweaks %} {% block content %}
+{% extends 'base.html' %} 
+{% load widget_tweaks %}
+
+
+{% block content %}
 <h2 class="text-center">Post A Parking Spot</h2>
 
-<!-- {% for field in form %}
-    <p>{{ field.label_tag }}: {{ field }}</p>
-{% endfor %} -->
+{% if form.errors %}
+<div class="alert alert-danger">
+  Please correct the following errors:
+  <ul>
+    {% for field, errors in form.errors.items %}  
+    <li>{{ errors|join:", " }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
 
-<form class="w-50 mx-auto" method="POST">
+
+
+
+<form class="w-50 mx-auto" method="POST" id="parkingForm">
   {% csrf_token %}
 
   <div class="mb-3">
     <label for="{{ form.title.id_for_label }}" class="form-label"
       >Spot Title</label
     >
-    {{ form.title|add_class:"form-control" }} {% if form.title.errors %}
-    <div class="invalid-feedback d-block">
-      {{ form.title.errors|join:", " }}
-    </div>
-    {% endif %}
+    {{ form.title|add_class:"form-control" }} 
   </div>
 
   <div class="mb-3">
     <label for="{{ form.address.id_for_label }}" class="form-label"
       >Location Address</label
     >
-    {{ form.location }} {% if form.address.errors %}
-    <div class="invalid-feedback d-block">
-      {{ form.location.errors|join:", " }}
-    </div>
-    {% endif %}
+    {{ form.location }} 
   </div>
 
   <div class="mb-3">
@@ -37,11 +43,6 @@
       >Price per Hour ($)</label
     >
     {{ form.rent_per_hour|add_class:"form-control" }} 
-    {% if form.rent_per_hour.errors %}
-    <div class="invalid-feedback d-block">
-      {{ form.rent_per_hour.errors|join:", " }}
-    </div>
-    {% endif %}
   </div>
 
   <div class="row mb-3">
@@ -50,22 +51,12 @@
         >Available From</label
       >
       {{ form.available_from|add_class:"form-control"|attr:"type:date" }} 
-      {% if form.available_from.errors %}
-      <div class="invalid-feedback d-block">
-        {{ form.available_from.errors|join:", " }}
-      </div>
-      {% endif %}
     </div>
     <div class="col">
       <label for="{{ form.end_date.id_for_label }}" class="form-label"
         >Available Until</label
       >
       {{ form.available_until|add_class:"form-control"|attr:"type:date" }} 
-      {%if form.available_until.errors %}
-      <div class="invalid-feedback d-block">
-        {{ form.available_until.errors|join:", " }}
-      </div>
-      {% endif %}
     </div>
   </div>
 
@@ -75,22 +66,12 @@
         >Available Time From</label
       >
       {{ form.available_time_from|add_class:"form-control"|attr:"type:time" }}
-      {% if form.available_time_from.errors %}
-      <div class="invalid-feedback d-block">
-        {{ form.available_time_from.errors|join:", " }}
-      </div>
-      {% endif %}
     </div>
     <div class="col">
       <label for="{{ form.end_time.id_for_label }}" class="form-label"
         >Available Time Until</label
       >
       {{ form.available_time_until|add_class:"form-control"|attr:"type:time" }}
-      {% if form.available_time_until.errors %}
-      <div class="invalid-feedback d-block">
-        {{ form.available_time_until.errors|join:", " }}
-      </div>
-      {% endif %}
     </div>
   </div>
 
@@ -99,120 +80,8 @@
       >Description</label
     >
     {{ form.description|add_class:"form-control"|attr:"rows:3" }} 
-    {% if form.description.errors %}
-    <div class="invalid-feedback d-block">
-      {{ form.description.errors|join:", " }}
-    </div>
-    {% endif %}
   </div>
 
   <button type="submit" class="btn btn-primary w-100">Post Spot</button>
 </form>
 {% endblock %} 
-{% block scripts %}
-<script>
-  function validateForm(event) {
-    event.preventDefault();
-
-    // Reset all validations
-    const form = document.getElementById("parkingForm");
-    const inputs = form.querySelectorAll("input, select, textarea");
-    inputs.forEach((input) => {
-      input.classList.remove("is-invalid");
-    });
-
-    let isValid = true;
-
-    // Validate title
-    const title = document.getElementById("{{ form.title.id_for_label }}");
-    if (title.value.length < 3 || title.value.length > 100) {
-      title.classList.add("is-invalid");
-      isValid = false;
-    }
-
-    // Validate location
-    const location = document.getElementById(
-      "{{ form.location.id_for_label }}"
-    );
-    if (!location.value.trim()) {
-      location.classList.add("is-invalid");
-      isValid = false;
-    }
-
-    // Validate price
-    const price = document.getElementById(
-      "{{ form.rent_per_hour.id_for_label }}"
-    );
-    if (price.value <= 0) {
-      price.classList.add("is-invalid");
-      isValid = false;
-    }
-
-    // Validate dates
-    const startDate = new Date(
-      document.getElementById("{{ form.available_from.id_for_label }}").value
-    );
-    const endDate = new Date(
-      document.getElementById("{{ form.available_until.id_for_label }}").value
-    );
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    if (startDate < today) {
-      document
-        .getElementById("{{ form.available_from.id_for_label }}")
-        .classList.add("is-invalid");
-      isValid = false;
-    }
-
-    if (endDate <= startDate) {
-      document
-        .getElementById("{{ form.available_until.id_for_label }}")
-        .classList.add("is-invalid");
-      isValid = false;
-    }
-
-    // Validate times
-    const startTime = document.getElementById(
-      "{{ form.available_time_from.id_for_label }}"
-    ).value;
-    const endTime = document.getElementById(
-      "{{ form.available_time_until.id_for_label }}"
-    ).value;
-    if (startTime >= endTime) {
-      document
-        .getElementById("{{ form.available_time_from.id_for_label }}")
-        .classList.add("is-invalid");
-      document
-        .getElementById("{{ form.available_time_until.id_for_label }}")
-        .classList.add("is-invalid");
-      isValid = false;
-    }
-
-    // Validate description
-    const description = document.getElementById(
-      "{{ form.description.id_for_label }}"
-    );
-    if (description.value.length < 10 || description.value.length > 500) {
-      description.classList.add("is-invalid");
-      isValid = false;
-    }
-
-    // If all validations pass, submit the form
-    if (isValid) {
-      form.submit();
-    }
-  }
-
-  // Set minimum date for date inputs
-  const today = new Date().toISOString().split("T")[0];
-  document.getElementById("{{ form.available_from.id_for_label }}").min = today;
-  document.getElementById("{{ form.available_until.id_for_label }}").min =
-    today;
-
-  // Add event listener to form
-  document
-    .getElementById("parkingForm")
-    .addEventListener("submit", validateForm);
-</script>
-{% endblock %}

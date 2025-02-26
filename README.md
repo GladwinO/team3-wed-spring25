@@ -130,7 +130,7 @@ pip freeze > requirements.txt
 - ```ParkEasy```: Main ParkEasy orchestration app. 
 - ```accounts```: To manage accounts. 
 - ```listing```: For parking spot owners to list  and view their parking spots. 
-- ```renting```???: (not implemented yet), an app for users to look for parking spots.
+- ```booking```: For users to book parking spots, see the spots they booked and manage them.
 
 ## Resources
 - Styling: https://getbootstrap.com/
