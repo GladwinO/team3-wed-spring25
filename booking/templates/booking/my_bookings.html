@@ -7,20 +7,36 @@
   {% if bookings %}
     <ul class="list-group">
       {% for booking in bookings %}
-      <li class="list-group-item">
-        <strong>{{ booking.listing.title }}</strong> 
-        <br> On: {{ booking.booking_date|date:"M d, Y" }}
-        <br> From: {{ booking.start_time|time:"g:i A" }} to {{ booking.end_time|time:"g:i A" }}
-        <br> Total Price: ${{ booking.total_price }}
-        <br>
-        <a 
-          href="{% url 'cancel_booking' booking.id %}" 
-          class="btn btn-danger btn-sm mt-2"
-        >
-          Cancel
-        </a>
-      </li>
+        <li class="list-group-item">
+          <strong>{{ booking.listing.title }}</strong>
+          <br> On: {{ booking.booking_date|date:"M d, Y" }}
+          <br> From: {{ booking.start_time|time:"g:i A" }} to {{ booking.end_time|time:"g:i A" }}
+          <br> Total Price: ${{ booking.total_price }}
+          <br>
+          <strong>Status: </strong>
+          {% if booking.status == "PENDING" %}
+            <span class="badge bg-warning text-dark">Pending</span>
+          {% elif booking.status == "APPROVED" %}
+            <span class="badge bg-success">Approved</span>
+          {% elif booking.status == "DECLINED" %}
+            <span class="badge bg-danger">Declined</span>
+          {% endif %}
+          <br>
+          {% if booking.is_reviewed %}
+            <span class="badge bg-success">Reviewed</span>
+          {% else %}
+            {% if booking.can_be_reviewed %}
+              <a href="{% url 'review_booking' booking.id %}" class="btn btn-primary btn-sm mt-2">Review</a>
+            {% elif booking.status == "DECLINED" %}
+              <a href="{% url 'cancel_booking' booking.id %}" class="btn btn-danger btn-sm mt-2">Remove</a>
+            {% else %}
+              <a href="{% url 'cancel_booking' booking.id %}" class="btn btn-danger btn-sm mt-2">Cancel</a>
+            {% endif %}
+          {% endif %}
+        </li>
       {% endfor %}
+
+
     </ul>
   {% else %}
     <p>No bookings yet.</p>

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    {% if success %}
+        <div class="alert alert-success">
+            {% if success_message %}
+                {{ success_message }}
+            {% else %}
+                Congratulations, you are verified and can now post spots!
+            {% endif %}
+        </div>
+        <!-- Optionally, provide a link to where they can post a spot -->
+        <a href="{% url 'create_listing' %}" class="btn btn-primary">Post a Spot</a>
+    {% else %}
+        {% if error_message %}
+            <div class="alert alert-danger">{{ error_message }}</div>
+        {% endif %}
+        <h2>Account Verification</h2>
+        <p>Please answer this question to verify your account:</p>
+        <p><strong>What is the best app for renting parking spots?</strong></p>
+        <form method="POST">
+            {% csrf_token %}
+            <div class="mb-3">
+                <input type="text" name="answer" class="form-control" placeholder="Enter your answer">
+            </div>
+            <button type="submit" class="btn btn-primary">Submit Answer</button>
+        </form>
+    {% endif %}
+</div>
+{% endblock %}

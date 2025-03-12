@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+  <h1>Inbox</h1>
+  <div class="mb-3">
+    <a class="btn btn-primary" href="{% url 'compose_message' %}">Compose New Message</a>
+    <a class="btn btn-secondary" href="{% url 'sent_messages' %}">View Sent Messages</a>
+  </div>
+  <table class="table table-bordered">
+    <thead>
+      <tr>
+        <th>From</th>
+        <th>Subject</th>
+        <th>Date</th>
+        <th>Read</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for msg in messages_inbox %}
+      <tr>
+        <td>{{ msg.sender.username }}</td>
+        <td>
+          <a href="{% url 'message_detail' msg.id %}">
+            {{ msg.subject|default:"(No Subject)" }}
+          </a>
+        </td>
+        <td>{{ msg.created_at }}</td>
+        <td>{{ msg.read }}</td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="4">No messages in your inbox.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

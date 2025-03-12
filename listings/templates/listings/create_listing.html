@@ -1,25 +1,38 @@
 <!-- listings/templates/listings/create_listing.html -->
 
-{% extends 'base.html' %} 
-{% load widget_tweaks %}
-
-
-{% block content %}
+{% extends 'base.html' %} {% load widget_tweaks %} {% load static %} 
+{% block extra_head %}
+<!-- Leaflet CSS -->
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+  crossorigin=""
+/>
+<!-- Custom CSS -->
+<!-- <link rel="stylesheet" href="{% static 'listings/css/map.css' %}" /> -->
+{% endblock %} 
+{% block content %} 
+{% if not request.user.profile.is_verified %}
+<div class="container mt-5 text-center">
+  <h2>You need to be verified before posting a parking spot.</h2>
+  <a href="{% url 'verify' %}" class="btn btn-warning"
+    >Get Verified to Post a Spot</a
+  >
+</div>
+{% else %}
 <h2 class="text-center">Post A Parking Spot</h2>
 
 {% if form.errors %}
 <div class="alert alert-danger">
   Please correct the following errors:
   <ul>
-    {% for field, errors in form.errors.items %}  
+    {% for field, errors in form.errors.items %}
     <li>{{ errors|join:", " }}</li>
     {% endfor %}
   </ul>
 </div>
 {% endif %}
-
-
-
 
 <form class="w-50 mx-auto" method="POST" id="parkingForm">
   {% csrf_token %}
@@ -28,21 +41,33 @@
     <label for="{{ form.title.id_for_label }}" class="form-label"
       >Spot Title</label
     >
-    {{ form.title|add_class:"form-control" }} 
+    {{ form.title|add_class:"form-control" }}
   </div>
 
   <div class="mb-3">
-    <label for="{{ form.address.id_for_label }}" class="form-label"
-      >Location Address</label
-    >
-    {{ form.location }} 
+    <label class="form-label">Location</label>
+    <div class="search-container mb-2">
+      <div class="input-group">
+        <input
+          type="text"
+          id="location-search"
+          class="form-control"
+          placeholder="Search location..."
+        />
+        <button class="btn btn-primary" id="search-location">Search</button>
+      </div>
+    </div>
+    <div class="map-container" style="height: 400px; width: 100%;">
+      <div id="map" style="height: 100%; width: 100%;"></div>
+    </div>
+    {{ form.location|add_class:"form-control" }}
   </div>
 
   <div class="mb-3">
     <label for="{{ form.price.id_for_label }}" class="form-label"
       >Price per Hour ($)</label
     >
-    {{ form.rent_per_hour|add_class:"form-control" }} 
+    {{ form.rent_per_hour|add_class:"form-control" }}
   </div>
 
   <div class="row mb-3">
@@ -50,28 +75,33 @@
       <label for="{{ form.start_date.id_for_label }}" class="form-label"
         >Available From</label
       >
-      {{ form.available_from|add_class:"form-control"|attr:"type:date" }} 
+      {{ form.available_from|add_class:"form-control"|attr:"type:date" }}
     </div>
     <div class="col">
       <label for="{{ form.end_date.id_for_label }}" class="form-label"
         >Available Until</label
       >
-      {{ form.available_until|add_class:"form-control"|attr:"type:date" }} 
+      {{ form.available_until|add_class:"form-control"|attr:"type:date" }}
     </div>
   </div>
 
+  <!-- Available Times -->
   <div class="row mb-3">
     <div class="col">
-      <label for="{{ form.start_time.id_for_label }}" class="form-label"
+      <label
+        for="{{ form.available_time_from.id_for_label }}"
+        class="form-label"
         >Available Time From</label
       >
-      {{ form.available_time_from|add_class:"form-control"|attr:"type:time" }}
+      {{ form.available_time_from|add_class:"form-control" }}
     </div>
     <div class="col">
-      <label for="{{ form.end_time.id_for_label }}" class="form-label"
+      <label
+        for="{{ form.available_time_until.id_for_label }}"
+        class="form-label"
         >Available Time Until</label
       >
-      {{ form.available_time_until|add_class:"form-control"|attr:"type:time" }}
+      {{ form.available_time_until|add_class:"form-control" }}
     </div>
   </div>
 
@@ -79,9 +109,20 @@
     <label for="{{ form.description.id_for_label }}" class="form-label"
       >Description</label
     >
-    {{ form.description|add_class:"form-control"|attr:"rows:3" }} 
+    {{ form.description|add_class:"form-control"|attr:"rows:3" }}
   </div>
 
   <button type="submit" class="btn btn-primary w-100">Post Spot</button>
 </form>
+{% endif %} 
 {% endblock %} 
+
+{% block scripts %}
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""
+></script>
+<script src="{% static 'listings/js/create_listings.js' %}"></script>
+
+{% endblock %}

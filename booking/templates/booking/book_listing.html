@@ -7,6 +7,18 @@
   <h2>Book: {{ listing.title }}</h2>
   <p>Location: {{ listing.location }}</p>
   <p>Hourly Rate: ${{ listing.rent_per_hour }}</p>
+  <p>Available From: {{ listing.available_from|date:"M d, Y" }} to {{ listing.available_until|date:"M d, Y" }}</p>
+  <p>Available Time: {{ listing.available_time_from|time:"g:i A" }} to {{ listing.available_time_until|time:"g:i A" }}</p>
+
+  {% if form.errors %}
+    <div class="alert alert-danger">
+      <ul>
+        {% for field, errors in form.errors.items %}
+          <li>{{ errors|join:", " }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
 
   <form method="POST" class="mt-4">
     {% csrf_token %}

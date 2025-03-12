@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+  <h1>Compose Message</h1>
+  <form method="POST" novalidate>
+    {% csrf_token %}
+    <div class="mb-3">
+      <label for="id_recipient" class="form-label">Recipient</label>
+      {{ form.recipient }}
+    </div>
+    <div class="mb-3">
+      <label for="id_subject" class="form-label">Subject</label>
+      {{ form.subject }}
+    </div>
+    <div class="mb-3">
+      <label for="id_body" class="form-label">Message</label>
+      {{ form.body }}
+    </div>
+    <button type="submit" class="btn btn-primary">Send</button>
+  </form>
+{% endblock %}

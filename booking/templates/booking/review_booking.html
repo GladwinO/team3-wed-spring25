@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% block title %}Review Booking{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+  <h2>Leave a Review for {{ booking.listing.title }}</h2>
+  <form method="POST">
+    {% csrf_token %}
+    
+    <!-- Dynamic Star Rating Widget -->
+    <div class="mb-3">
+      <label for="id_rating">Rating</label>
+      <div id="star-rating">
+        <span data-value="1" class="star">&#9734;</span>
+        <span data-value="2" class="star">&#9734;</span>
+        <span data-value="3" class="star">&#9734;</span>
+        <span data-value="4" class="star">&#9734;</span>
+        <span data-value="5" class="star">&#9734;</span>
+      </div>
+      <!-- Hidden input to hold the rating value -->
+      <input type="hidden" name="rating" id="id_rating" value="0">
+    </div>
+    
+    <!-- Comment Field -->
+    <div class="mb-3">
+      {{ form.comment.label_tag }}
+      {{ form.comment }}
+    </div>
+    
+    <button type="submit" class="btn btn-primary">Submit Review</button>
+  </form>
+</div>
+
+<!-- Optional CSS styling for the stars -->
+<style>
+  #star-rating .star {
+    font-size: 2rem;
+    color: #ccc;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+  #star-rating .star.selected {
+    color: gold;
+  }
+</style>
+
+<!-- JavaScript for Dynamic Star Rating -->
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    const stars = document.querySelectorAll("#star-rating .star");
+    const ratingInput = document.getElementById("id_rating");
+
+    // Function to update the stars based on the current rating value
+    function setStars(rating) {
+      stars.forEach(star => {
+        if (parseInt(star.getAttribute("data-value")) <= rating) {
+          star.classList.add("selected");
+          star.innerHTML = "&#9733;"; // filled star
+        } else {
+          star.classList.remove("selected");
+          star.innerHTML = "&#9734;"; // empty star
+        }
+      });
+    }
+
+    stars.forEach(star => {
+      // When a star is clicked, update the hidden input and highlight stars.
+      star.addEventListener("click", function() {
+        const rating = parseInt(this.getAttribute("data-value"));
+        ratingInput.value = rating;
+        setStars(rating);
+      });
+
+      // Optional: On hover, show the preview rating.
+      star.addEventListener("mouseover", function() {
+        const rating = parseInt(this.getAttribute("data-value"));
+        setStars(rating);
+      });
+
+      // When mouse leaves, reset to the currently selected rating.
+      star.addEventListener("mouseout", function() {
+        const currentRating = parseInt(ratingInput.value);
+        setStars(currentRating);
+      });
+    });
+  });
+</script>
+{% endblock %}

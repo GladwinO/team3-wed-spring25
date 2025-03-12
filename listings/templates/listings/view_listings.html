@@ -1,106 +1,208 @@
-{% extends 'base.html' %} 
-
-{% block title %}All Listings{% endblock %} 
-
-{% block content %}
+{% extends 'base.html' %} {% load static %} {% load listing_extras %} 
+{% block extra_head %}
+<!-- Leaflet CSS -->
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+  crossorigin=""
+/>
+<!-- Custom CSS -->
+<link rel="stylesheet" href="{% static 'listings/css/map.css' %}" />
+<link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
+/>
+<style>
+  .view-toggle {
+    margin-bottom: 20px;
+  }
+  #map-view {
+    height: 600px;
+  }
+  .view-container {
+    display: none; /* Hide by default */
+  }
+  .active-view {
+    display: block !important; /* Show when active */
+  }
+  .rating-stars {
+    display: inline-block;
+    margin: 0 5px;
+  }
+  .rating-stars i {
+    color: #ffd700; /* Gold color for stars */
+    font-size: 14px;
+    margin-right: 2px;
+  }
+  .rating-number {
+    color: #666;
+    font-size: 0.9em;
+    margin-left: 5px;
+  }
+</style>
+{% endblock %} {% block title %}All Listings{% endblock %} {% block content %}
 <div class="container mt-5">
   <h2 class="text-center">Available Parking Spots</h2>
 
+  <!-- View Toggle Buttons -->
+  <div class="view-toggle text-center mb-4">
+    <div class="btn-group" role="group">
+      <button class="btn btn-primary active" id="list-view-btn">
+        List View
+      </button>
+      <button class="btn btn-outline-primary" id="map-view-btn">
+        Map View
+      </button>
+    </div>
+  </div>
+
   <!-- Filter Form -->
-  <form method="GET" action="{% url 'view_listings' %}" class="p-3 border rounded bg-light mb-4">
+  <form
+    method="GET"
+    action="{% url 'view_listings' %}"
+    class="p-3 border rounded bg-light mb-4"
+  >
     <div class="row">
       <!-- Max Price -->
       <div class="col-md-2">
         <label for="max_price" class="form-label">Max Price ($/hr)</label>
-        <input 
-          type="number" 
-          step="0.01" 
-          class="form-control" 
-          id="max_price" 
-          name="max_price" 
+        <input
+          type="number"
+          step="0.01"
+          class="form-control"
+          id="max_price"
+          name="max_price"
           value="{{ request.GET.max_price|default_if_none:'' }}"
-          placeholder="Enter max price">
+          placeholder="Enter max price"
+        />
       </div>
 
       <!-- Start Date -->
       <div class="col-md-2">
         <label for="start_date" class="form-label">Start Date</label>
-        <input 
-          type="date" 
-          class="form-control" 
-          id="start_date" 
-          name="start_date" 
+        <input
+          type="date"
+          class="form-control"
+          id="start_date"
+          name="start_date"
           value="{{ request.GET.start_date|default_if_none:'' }}"
-          placeholder="Earliest available date">
+          placeholder="Earliest available date"
+        />
       </div>
 
       <!-- End Date -->
       <div class="col-md-2">
         <label for="end_date" class="form-label">End Date</label>
-        <input 
-          type="date" 
-          class="form-control" 
-          id="end_date" 
-          name="end_date" 
+        <input
+          type="date"
+          class="form-control"
+          id="end_date"
+          name="end_date"
           value="{{ request.GET.end_date|default_if_none:'' }}"
-          placeholder="Latest available date">
+          placeholder="Latest available date"
+        />
       </div>
 
       <!-- Start Time -->
       <div class="col-md-2">
         <label for="start_time" class="form-label">Start Time</label>
-        <input 
-          type="time" 
-          class="form-control" 
-          id="start_time" 
-          name="start_time" 
+        <input
+          type="time"
+          class="form-control"
+          id="start_time"
+          name="start_time"
           value="{{ request.GET.start_time|default_if_none:'' }}"
-          placeholder="Earliest available time">
+          placeholder="Earliest available time"
+        />
       </div>
 
       <!-- End Time -->
       <div class="col-md-2">
         <label for="end_time" class="form-label">End Time</label>
-        <input 
-          type="time" 
-          class="form-control" 
-          id="end_time" 
-          name="end_time" 
+        <input
+          type="time"
+          class="form-control"
+          id="end_time"
+          name="end_time"
           value="{{ request.GET.end_time|default_if_none:'' }}"
-          placeholder="Latest available time">
+          placeholder="Latest available time"
+        />
       </div>
 
       <!-- Buttons -->
       <div class="col-md-2 d-flex align-items-end">
         <button type="submit" class="btn btn-primary me-2">Filter</button>
-        <a href="{% url 'view_listings' %}" class="btn btn-secondary">Clear Filters</a>
+        <a href="{% url 'view_listings' %}" class="btn btn-secondary"
+          >Clear Filters</a
+        >
       </div>
     </div>
   </form>
 
-  <!-- Listings Display -->
-  <div class="listings-container p-3 border rounded">
+  <!-- List View print -->
+  <div
+    id="list-view"
+    class="view-container listings-container p-3 border rounded active-view"
+  >
     {% for listing in listings %}
-    <div class="card mb-3">
+    <div class="card mb-3" data-location="{{ listing.location }}">
       <div class="card-body">
         <h5 class="card-title">{{ listing.title }}</h5>
-        <p class="card-text"><strong>Location:</strong> {{ listing.location }}</p>
-        <p class="card-text"><strong>Price:</strong> ${{ listing.rent_per_hour }}/hour</p>
         <p class="card-text">
-          <strong>Available:</strong> 
-          {{ listing.available_from|date:"M d, Y" }} to 
-          {{ listing.available_until|date:"M d, Y" }}
+          <strong>Location:</strong> {{ listing.location_name }}
         </p>
         <p class="card-text">
-          <strong>Hours:</strong> 
-          {{ listing.available_time_from|time:"g:i A" }} to 
-          {{ listing.available_time_until|time:"g:i A" }}
+          <strong>Price:</strong> ${{ listing.rent_per_hour }}/hour
+        </p>
+        <p class="card-text">
+          <strong>Available:</strong>
+          {{ listing.available_from|date:"M d, Y" }} to {{ listing.available_until|date:"M d, Y" }}
+        </p>
+        <p class="card-text">
+          <strong>Hours:</strong>
+          {{ listing.available_time_from|time:"g:i A" }} to {{ listing.available_time_until|time:"g:i A" }}
         </p>
         <p class="card-text">{{ listing.description }}</p>
+        {% if listing.avg_rating %}
         <p class="card-text">
-          <small class="text-muted">Listed by: {{ listing.user.username }}</small>
+          <strong>Average Rating:</strong>
+          <span class="rating-stars">
+            {% with rating_val=listing.avg_rating|floatformat:1|add:"0" %}
+              {% for i in "12345" %}
+                {% if forloop.counter <= rating_val %}
+                  <i class="fas fa-star text-warning"></i>
+                {% elif forloop.counter|add:"-0.5" <= rating_val %}
+                  <i class="fas fa-star-half-alt text-warning"></i>
+                {% else %}
+                  <i class="far fa-star text-warning"></i>
+                {% endif %}
+              {% endfor %}
+            {% endwith %}
+          </span>
+          <span class="rating-number">{{ listing.avg_rating|floatformat:1 }}</span>
         </p>
-        <a href="{% url 'book_listing' listing.id %}" class="btn btn-success">Book Now</a>
+        {% else %}
+        <p class="card-text text-muted">
+          <span class="rating-stars">
+            {% for _ in "12345" %}
+              <i class="far fa-star text-warning"></i>
+            {% endfor %}
+          </span>
+          <span class="text-muted">No ratings yet</span>
+        </p>
+        {% endif %}
+        <p class="card-text">
+          <small class="text-muted"
+            >Listed by: {{ listing.user.username }}</small
+          >
+        </p>
+        {% if user != listing.user %}  
+          <a href="{% url 'book_listing' listing.id %}" class="btn btn-success">Book Now</a>
+        {% else %}
+          <span class="badge bg-secondary">Your listing</span>
+        {% endif %}
+        <a href="{% url 'listing_reviews' listing.id %}" class="btn btn-info btn-sm">Reviews</a>
       </div>
     </div>
     {% empty %}
@@ -110,8 +212,23 @@
     {% endfor %}
   </div>
 
+  <!-- Map View -->
+  <div id="map-view" class="view-container border rounded">
+    <!-- The map will be initialized here -->
+  </div>
+
   <div class="text-center mt-3">
-    <a href="{% url 'create_listing' %}" class="btn btn-primary">Create a new listing</a>
+    <a href="{% url 'create_listing' %}" class="btn btn-primary"
+      >Create a new listing</a
+    >
   </div>
 </div>
+{% endblock %} {% block scripts %}
+<!-- Leaflet JS -->
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""
+></script>
+<script src="{% static 'listings/js/view_listings.js' %}"></script>
 {% endblock %}

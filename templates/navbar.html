@@ -8,10 +8,23 @@
             <ul class="navbar-nav ms-auto">
                 <li class="nav-item"><a class="nav-link" href="{% url 'view_listings' %}">View Listings</a></li>
                 {% if user.is_authenticated %}
-                    <li class="nav-item"><a class="nav-link" href="{% url 'create_listing' %}">Post a Spot</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'my_bookings' %}">My Bookings</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'create_listing' %}">Post a Spot</a></li>
+                    
+                    {% if user.profile.is_verified %}
+                        <li class="nav-item"><a class="nav-link" href="{% url 'manage_listings' %}">Manage My Listings</a></li>
+                    {% endif %}
+                    
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'inbox' %}">
+                            Messages
+                            {% if unread_count > 0 %}
+                                <span class="badge bg-danger">{{ unread_count }}</span>
+                            {% endif %}
+                        </a>
+                    </li>
+
                     <li class="nav-item"><a class="nav-link" href="{% url 'logout' %}">Logout</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{% url 'manage_listings' %}">Manage My Listings</a></li>
                 {% else %}
                     <li class="nav-item"><a class="nav-link" href="{% url 'login' %}">Login</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'register' %}">Register</a></li>

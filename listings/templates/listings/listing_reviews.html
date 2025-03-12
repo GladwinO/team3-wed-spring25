@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}Reviews for {{ listing.title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+  <h2>Reviews for {{ listing.title }}</h2>
+  {% if reviews %}
+    {% for review in reviews %}
+      <div class="card mb-3">
+        <div class="card-body">
+          <h5 class="card-title">Rating: {{ review.rating }} / 5</h5>
+          <p class="card-text">{{ review.comment }}</p>
+          <p class="card-text"><small class="text-muted">Reviewed by: {{ review.user.username }} on {{ review.created_at|date:"M d, Y" }}</small></p>
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <p>No reviews yet for this listing.</p>
+  {% endif %}
+</div>
+{% endblock %}

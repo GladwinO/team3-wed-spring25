@@ -1,0 +1,83 @@
+dist: focal
+language: python
+python:
+  - "3.11"
+
+# Only run this repo's builds.
+before_install:
+  - if [ "$TRAVIS_REPO_SLUG" != "gcivil-nyu-org/team3-wed-spring25" ]; then echo "Not the gcivil repo, skipping build."; exit 0; fi
+
+branches:
+  only:
+    - develop
+    - main
+
+services:
+  - postgresql
+
+install:
+  - pip install -r requirements.txt
+  - pip install black flake8 coverage coveralls
+
+before_script:
+  - psql -c 'CREATE DATABASE parkeasy_db;' -U postgres
+  - python manage.py migrate
+  - python manage.py collectstatic --noinput
+
+script:
+  - black --check .
+  - flake8 .
+  - coverage run manage.py test
+  
+after_success:
+  - coveralls
+
+stages:
+  - name: test
+  - name: deploy_develop
+    if: branch = develop AND type = push
+  - name: deploy_main
+    if: branch = main AND type = push
+
+
+jobs:
+  include:
+    - stage: test
+      script:
+        - black --check .
+        - flake8 .
+        - coverage run manage.py test
+        
+    - stage: deploy_develop
+      before_deploy:
+        - zip -r deploy_package.zip . -x "*.git*" -x "**/__pycache__/*" -x "*.pyc" -x "venv/*"
+      deploy:
+        provider: elasticbeanstalk
+        access_key_id: "$AWS_ACCESS_KEY_ID_INT"
+        secret_access_key: "$AWS_SECRET_ACCESS_KEY_INT"
+        region: "us-east-1"
+        app: "ParkEasy"
+        env: "ParkEasy-dev"
+        bucket_name: "elasticbeanstalk-us-east-1-536697258874"
+        bucket_path: "ParkEasy"
+        zip_file: deploy_package.zip
+        skip_cleanup: true
+        on:
+          branch: develop
+
+    - stage: deploy_main
+      before_deploy:
+        - zip -r deploy_package.zip . -x "*.git*" -x "**/__pycache__/*" -x "*.pyc" -x "venv/*"
+      deploy:
+        provider: elasticbeanstalk
+        access_key_id: "$AWS_ACCESS_KEY_ID_MAIN"
+        secret_access_key: "$AWS_SECRET_ACCESS_KEY_MAIN"
+        region: "us-east-1"
+        app: "ParkEasyMain"
+        env: "ParkEasyMain-dev"
+        bucket_name: "elasticbeanstalk-us-east-1-490004620598"
+        bucket_path: "ParkEasyMain"
+        zip_file: deploy_package.zip
+        skip_cleanup: true
+        on:
+          branch: main
