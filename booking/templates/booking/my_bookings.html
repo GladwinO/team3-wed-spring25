@@ -3,43 +3,132 @@
 
 {% block content %}
 <div class="container mt-5">
-  <h2>My Bookings</h2>
+  <!-- Page Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>My Bookings</h2>
+    <a href="{% url 'view_listings' %}" class="btn btn-accent">
+      <i class="fas fa-plus me-1"></i>Book A Spot
+    </a>
+  </div>
+
   {% if bookings %}
-    <ul class="list-group">
+    <div class="row">
       {% for booking in bookings %}
-        <li class="list-group-item">
-          <strong>{{ booking.listing.title }}</strong>
-          <br> On: {{ booking.booking_date|date:"M d, Y" }}
-          <br> From: {{ booking.start_time|time:"g:i A" }} to {{ booking.end_time|time:"g:i A" }}
-          <br> Total Price: ${{ booking.total_price }}
-          <br>
-          <strong>Status: </strong>
-          {% if booking.status == "PENDING" %}
-            <span class="badge bg-warning text-dark">Pending</span>
-          {% elif booking.status == "APPROVED" %}
-            <span class="badge bg-success">Approved</span>
-          {% elif booking.status == "DECLINED" %}
-            <span class="badge bg-danger">Declined</span>
-          {% endif %}
-          <br>
-          {% if booking.is_reviewed %}
-            <span class="badge bg-success">Reviewed</span>
-          {% else %}
-            {% if booking.can_be_reviewed %}
-              <a href="{% url 'review_booking' booking.id %}" class="btn btn-primary btn-sm mt-2">Review</a>
-            {% elif booking.status == "DECLINED" %}
-              <a href="{% url 'cancel_booking' booking.id %}" class="btn btn-danger btn-sm mt-2">Remove</a>
-            {% else %}
-              <a href="{% url 'cancel_booking' booking.id %}" class="btn btn-danger btn-sm mt-2">Cancel</a>
-            {% endif %}
-          {% endif %}
-        </li>
+        <!-- Changed from col-lg-6 to col-12 for full-width -->
+        <div class="col-12 mb-4">
+          <div class="card shadow-sm border-0">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+              <h5 class="mb-0">{{ booking.listing.title }}</h5>
+              {% if booking.status == "PENDING" %}
+                <span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Pending</span>
+              {% elif booking.status == "APPROVED" %}
+                <span class="badge bg-success"><i class="fas fa-check me-1"></i>Approved</span>
+              {% elif booking.status == "DECLINED" %}
+                <span class="badge bg-danger"><i class="fas fa-times me-1"></i>Declined</span>
+              {% endif %}
+            </div>
+            
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-6">
+                  <!-- Location -->
+                  <p class="d-flex align-items-start mb-2">
+                    <i class="fas fa-map-marker-alt text-secondary me-2 mt-1"></i>
+                    <span>{{ booking.listing.location }}</span>
+                  </p>
+                  
+                  <!-- Price -->
+                  <p class="d-flex align-items-center mb-3">
+                    <i class="fas fa-tag text-secondary me-2"></i>
+                    <span class="fw-bold text-info">${{ booking.total_price }}</span>
+                  </p>
+                  
+                  <!-- Owner Contact -->
+                  <div class="mb-3">
+                    <div class="d-flex align-items-center mb-2">
+                      <i class="fas fa-user text-secondary me-2"></i>
+                      <span>Owner: <strong>{{ booking.listing.user.username }}</strong></span>
+                      <!-- Restyled button to match site - btn-accent, smaller, next to username -->
+                      <a href="{% url 'compose_message' %}?recipient={{ booking.listing.user.username }}" class="btn btn-xs btn-outline-accent ms-2">
+                        <i class="fas fa-envelope me-1"></i>Message
+                      </a>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="col-md-6">
+                  <!-- Intervals -->
+                  <h6 class="mb-2 text-primary">
+                    <i class="fas fa-calendar-alt me-2"></i>Booking Intervals
+                  </h6>
+                  
+                  {% if booking.slots.all %}
+                    <div class="bg-light p-3 rounded mb-3">
+                      <ul class="list-unstyled mb-0">
+                        {% for slot in booking.slots.all %}
+                          <li class="mb-2 {% if not forloop.last %}border-bottom pb-2{% endif %}">
+                            <div class="d-flex">
+                              <i class="far fa-clock text-secondary me-2 mt-1"></i>
+                              <div>
+                                <strong>{{ slot.start_date|date:"M d, Y" }}</strong> {{ slot.start_time|time:"g:i A" }}
+                                <i class="fas fa-long-arrow-alt-right mx-1"></i>
+                                <strong>{{ slot.end_date|date:"M d, Y" }}</strong> {{ slot.end_time|time:"g:i A" }}
+                              </div>
+                            </div>
+                          </li>
+                        {% endfor %}
+                      </ul>
+                    </div>
+                  {% else %}
+                    <p class="text-muted fst-italic">
+                      <i class="fas fa-exclamation-circle me-1"></i>No slots defined for this booking.
+                    </p>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            
+            <div class="card-footer bg-white py-3">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  {% if booking.is_reviewed %}
+                    <span class="badge bg-info"><i class="fas fa-star me-1"></i>Reviewed</span>
+                  {% endif %}
+                </div>
+                <div>
+                  {% if not booking.is_reviewed %}
+                    {% if booking.can_be_reviewed %}
+                      <a href="{% url 'review_booking' booking.id %}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-star me-1"></i>Review
+                      </a>
+                    {% elif booking.status == "DECLINED" %}
+                      <a href="{% url 'cancel_booking' booking.id %}" class="btn btn-danger btn-sm">
+                        <i class="fas fa-trash me-1"></i>Remove
+                      </a>
+                    {% else %}
+                      <a href="{% url 'cancel_booking' booking.id %}" class="btn btn-danger btn-sm">
+                        <i class="fas fa-ban me-1"></i>Cancel
+                      </a>
+                    {% endif %}
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       {% endfor %}
-
-
-    </ul>
+    </div>
   {% else %}
-    <p>No bookings yet.</p>
+    <div class="card shadow-sm border-0 text-center p-5">
+      <div class="card-body py-5">
+        <i class="fas fa-calendar-alt fa-4x text-secondary mb-4 opacity-50"></i>
+        <h3>No Bookings Yet</h3>
+        <p class="text-muted mb-4">Find available parking spots and book your first spot now!</p>
+        <a href="{% url 'view_listings' %}" class="btn btn-primary px-4">
+          <i class="fas fa-search me-2"></i>Find Parking Spots
+        </a>
+      </div>
+    </div>
   {% endif %}
 </div>
 {% endblock %}

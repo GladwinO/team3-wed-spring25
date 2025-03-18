@@ -1,0 +1,60 @@
+.slot-form {
+    position: relative;
+}
+
+.delete-slot {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    color: #dc3545;  /* Red color */
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 0;
+    font-size: 1.2rem;  /* Match the other X size */
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s ease;
+}
+
+.delete-slot:hover {
+    transform: scale(1.2);  /* Slight grow effect on hover */
+    opacity: 1;  /* Full opacity on hover */
+}
+/* Hide the DELETE checkbox that appears in Django formset */
+
+.slot-form input[type="checkbox"][name$="-DELETE"],
+.slot-form label[for$="-DELETE"] {
+    display: none !important;
+}
+
+
+.slot-form {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    margin-bottom: 1rem;
+    padding: 1.25rem;
+    transition: all 0.2s ease;
+  }
+  
+  .slot-form:hover {
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+  }
+  
+  .map-container {
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  }
+  
+  .section-header {
+    color: var(--color-primary);
+    border-bottom: 1px solid #eee;
+    padding-bottom: 0.75rem;
+    margin-bottom: 1.5rem;
+    font-weight: 600;
+  }

@@ -8,7 +8,7 @@ No more circling the block—just book a spot, park, and go.
 
 *Brought to you by Team 3*
 
-**Main**: http://parkeasymain.us-east-1.elasticbeanstalk.com/
+**Main**: http://parkeasymain2-dev.us-east-1.elasticbeanstalk.com/
 
 **Development**: http://parkeasyintegration.us-east-1.elasticbeanstalk.com/
 

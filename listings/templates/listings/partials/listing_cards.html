@@ -1,0 +1,125 @@
+<div class="listings-container">
+  {% for listing in listings %}
+  <div
+    class="card shadow-sm mb-3 border-0 h-100"
+    data-location="{{ listing.location }}"
+    data-location-name="{{ listing.location_name }}"
+    data-price="{{ listing.rent_per_hour }}"
+    data-title="{{ listing.title }}"
+    data-rating="{{ listing.avg_rating|default:0 }}"
+  >
+    <div class="card-body p-3">
+      <div class="row g-3">
+        <!-- Listing Title and Main Info -->
+        <div class="col-md-5">
+          <div class="d-flex align-items-center mb-2">
+            <h3 class="card-title fw-bold mb-0 me-2">{{ listing.title }}</h3>
+            {% if user == listing.user %}
+              <span class="badge bg-secondary"><i class="fas fa-user-check me-1"></i> Your listing</span>
+            {% else %}
+              <span class="badge bg-light text-dark border"><i class="fas fa-user me-1"></i> {{ listing.user.username }}</span>
+            {% endif %}
+          </div>
+          
+          <div class="mb-2">
+            <!-- Location with icon -->
+            <p class="card-text d-flex align-items-center mb-1">
+              <i class="fas fa-map-marker-alt text-secondary me-2"></i>
+              <span>{{ listing.location_name }}</span>
+            </p>
+
+            <!-- Description with icon -->
+            <p class="card-text small text-muted mb-2">
+              <i class="fas fa-info-circle text-secondary me-2"></i>
+              {{ listing.description|truncatechars:120 }}
+            </p>
+          </div>
+        </div>
+
+        <!-- Availability and Price Info -->
+        <div class="col-md-4">
+          <div class="d-flex flex-column h-100 justify-content-center">
+            <!-- Price with icon -->
+            <p class="card-text d-flex align-items-center mb-1">
+              <i class="fas fa-tag text-secondary me-2"></i>
+              <span>${{ listing.rent_per_hour }}/hour</span>
+            </p>
+          </div>
+        </div>
+
+        <!-- Rating and Actions -->
+        <div class="col-md-3">
+          <div class="d-flex flex-column h-100 justify-content-between">
+            <!-- Rating Block -->
+            <div class="mb-2">
+              <p class="card-text mb-1 small fw-bold">Rating:</p>
+              {% if listing.avg_rating %}
+              <div class="d-flex align-items-center">
+                <div class="rating-stars me-2">
+                  {% with rating_val=listing.avg_rating|floatformat:1|add:"0" %}
+                    {% for i in "12345" %}
+                      {% if forloop.counter <= rating_val %}
+                        <i class="fas fa-star text-warning"></i>
+                      {% elif forloop.counter|add:"-0.5" <= rating_val %}
+                        <i class="fas fa-star-half-alt text-warning"></i>
+                      {% else %}
+                        <i class="far fa-star text-warning"></i>
+                      {% endif %}
+                    {% endfor %}
+                  {% endwith %}
+                </div>
+                <span class="badge bg-warning text-dark fw-bold">{{ listing.avg_rating|floatformat:1 }}</span>
+                <span class="badge bg-light text-muted ms-2">
+                  {{ listing.rating_count }} {% if listing.rating_count == 1 %}rating{% else %}ratings{% endif %}
+                </span>
+              </div>
+              {% else %}
+              <div class="d-flex align-items-center">
+                <div class="rating-stars me-2">
+                  {% for _ in "12345" %}
+                    <i class="far fa-star text-warning"></i>
+                  {% endfor %}
+                </div>
+                <span class="badge bg-light text-muted">No ratings</span>
+              </div>
+              {% endif %}
+            </div>
+
+            <!-- User Info and Buttons -->
+            <div>
+              {% if user != listing.user %}
+                <div class="d-grid gap-2">
+                  <a href="{% url 'book_listing' listing.id %}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-calendar-check me-1"></i> Book Now
+                  </a>
+                  <a href="{% url 'listing_reviews' listing.id %}" class="btn btn-secondary btn-sm">
+                    <i class="fas fa-comment me-1"></i> Reviews
+                  </a>
+                </div>
+              {% else %}
+                <div class="d-grid">
+                  <a href="{% url 'listing_reviews' listing.id %}" class="btn btn-secondary btn-sm">
+                    <i class="fas fa-comment me-1"></i> Reviews
+                  </a>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="text-center p-4">
+    <p>No parking spots available that match your filters.</p>
+  </div>
+  {% endfor %}
+  
+  {% if has_next %}
+  <div class="text-center my-4">
+    <button id="load-more-btn" class="btn btn-accent" data-next-page="{{ next_page }}">
+      <i class="fas fa-spinner me-2"></i> Load More Listings
+    </button>
+  </div>
+  {% endif %}
+</div>

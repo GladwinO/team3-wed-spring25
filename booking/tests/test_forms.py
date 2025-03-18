@@ -1,97 +1,78 @@
-import datetime
+import datetime as dt
 from django.test import TestCase
-from datetime import date, timedelta
-from ..forms import BookingForm, HALF_HOUR_CHOICES
+from booking.forms import BookingSlotForm
+from booking.models import Listing
+from django.contrib.auth.models import User
 
 
-class TestBookingForm(TestCase):
+class BookingSlotFormTests(TestCase):
     def setUp(self):
-        # Create a mock listing object
-        class MockListing:
-            def __init__(self):
-                self.available_time_from = datetime.time(9, 0)  # 9:00 AM
-                self.available_time_until = datetime.time(17, 0)  # 5:00 PM
+        # Create a user first
+        self.user = User.objects.create_user(username="testuser", password="password")
 
-        self.listing = MockListing()
-        self.tomorrow = date.today() + timedelta(days=1)
+        # Create a listing with real fields
+        self.listing = Listing.objects.create(
+            user=self.user,
+            title="Test Listing",
+            location="Test Location",
+            rent_per_hour=10.0,
+            description="Test description",
+        )
 
-    def test_init_default(self):
-        """Test form initialization without a listing"""
-        form = BookingForm()
-        self.assertEqual(form.fields["start_time"].choices, HALF_HOUR_CHOICES)
-        self.assertEqual(form.fields["end_time"].choices, HALF_HOUR_CHOICES)
+        # Create listing slots that will determine the earliest/latest dates
+        from listings.models import ListingSlot
 
-    def test_init_with_listing(self):
-        """Test form initialization with a listing"""
-        form = BookingForm(listing=self.listing)
+        ListingSlot.objects.create(
+            listing=self.listing,
+            start_date=dt.date(2023, 1, 1),
+            end_date=dt.date(2023, 12, 31),
+            start_time=dt.time(8, 0),
+            end_time=dt.time(18, 0),
+        )
 
-        # Check that time choices are limited by the listing's available times
-        expected_choices = [
-            (f"{hour:02d}:{minute:02d}", f"{hour:02d}:{minute:02d}")
-            for hour in range(24)
-            for minute in (0, 30)
-            if datetime.time(hour, minute) >= self.listing.available_time_from
-            and datetime.time(hour, minute) <= self.listing.available_time_until
-        ]
+    def test_min_date_set_to_today_if_earliest_start_date_is_past(self):
+        form = BookingSlotForm(listing=self.listing)
+        today_str = dt.date.today().strftime("%Y-%m-%d")
+        self.assertEqual(form.fields["start_date"].widget.attrs["min"], today_str)
+        self.assertEqual(form.fields["end_date"].widget.attrs["min"], today_str)
+
+    def test_min_date_set_to_earliest_start_date_if_future(self):
+        # Delete existing slot
+        from listings.models import ListingSlot
+
+        ListingSlot.objects.filter(listing=self.listing).delete()
+
+        # Create a new slot with future dates
+        future_date = dt.date.today() + dt.timedelta(days=10)
+        ListingSlot.objects.create(
+            listing=self.listing,
+            start_date=future_date,
+            end_date=future_date + dt.timedelta(days=30),
+            start_time=dt.time(8, 0),
+            end_time=dt.time(18, 0),
+        )
+
+        # Now the property will return the future date
+        form = BookingSlotForm(listing=self.listing)
+        future_date_str = future_date.strftime("%Y-%m-%d")
+        self.assertEqual(form.fields["start_date"].widget.attrs["min"], future_date_str)
+        self.assertEqual(form.fields["end_date"].widget.attrs["min"], future_date_str)
+
+    def test_max_date_set_to_latest_end_date(self):
+        form = BookingSlotForm(listing=self.listing)
+        latest_date_str = self.listing.latest_end_datetime.date().strftime("%Y-%m-%d")
+        self.assertEqual(form.fields["start_date"].widget.attrs["max"], latest_date_str)
+        self.assertEqual(form.fields["end_date"].widget.attrs["max"], latest_date_str)
+
+    def test_time_choices_filtered_based_on_listing_slots(self):
+        form_data = {"start_date": "2023-01-01"}
+        form = BookingSlotForm(data=form_data, listing=self.listing)
+
+        # Create expected choices with half-hour increments
+        expected_choices = []
+        for hour in range(8, 18):  # Changed from 18 to 17 to exclude 17:30
+            expected_choices.append((f"{hour:02d}:00", f"{hour:02d}:00"))
+            expected_choices.append((f"{hour:02d}:30", f"{hour:02d}:30"))
 
         self.assertEqual(form.fields["start_time"].choices, expected_choices)
         self.assertEqual(form.fields["end_time"].choices, expected_choices)
-
-    def test_clean_booking_date_past_date(self):
-        """Test validation rejects past dates"""
-        yesterday = date.today() - timedelta(days=1)
-        form_data = {
-            "booking_date": yesterday,
-            "start_time": "10:00",
-            "end_time": "11:00",
-        }
-        form = BookingForm(data=form_data)
-        self.assertFalse(form.is_valid())
-        self.assertIn("booking_date", form.errors)
-        self.assertIn("past date", form.errors["booking_date"][0])
-
-    def test_clean_start_time_before_end_time(self):
-        """Test validation requires start time before end time"""
-        form_data = {
-            "booking_date": self.tomorrow,
-            "start_time": "11:00",
-            "end_time": "10:00",
-        }
-        form = BookingForm(data=form_data)
-        self.assertFalse(form.is_valid())
-        self.assertIn("Start Time must be before End Time", str(form.errors))
-
-    def test_clean_equal_times(self):
-        """Test validation rejects equal start and end times"""
-        form_data = {
-            "booking_date": self.tomorrow,
-            "start_time": "10:00",
-            "end_time": "10:00",
-        }
-        form = BookingForm(data=form_data)
-        self.assertFalse(form.is_valid())
-        self.assertIn("Start Time must be before End Time", str(form.errors))
-
-    def test_clean_invalid_time_format(self):
-        """Test validation rejects invalid time formats"""
-        form_data = {
-            "booking_date": self.tomorrow,
-            "start_time": "invalid",
-            "end_time": "11:00",
-        }
-        form = BookingForm(data=form_data)
-        self.assertFalse(form.is_valid())
-
-    def test_valid_form(self):
-        """Test form accepts valid data"""
-        form_data = {
-            "booking_date": self.tomorrow,
-            "start_time": "10:00",
-            "end_time": "11:00",
-        }
-        form = BookingForm(data=form_data)
-        self.assertTrue(form.is_valid())
-
-        # Check that times were converted to datetime.time objects
-        self.assertIsInstance(form.cleaned_data["start_time"], datetime.time)
-        self.assertIsInstance(form.cleaned_data["end_time"], datetime.time)

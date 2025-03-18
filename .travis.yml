@@ -73,10 +73,10 @@ jobs:
         access_key_id: "$AWS_ACCESS_KEY_ID_MAIN"
         secret_access_key: "$AWS_SECRET_ACCESS_KEY_MAIN"
         region: "us-east-1"
-        app: "ParkEasyMain"
-        env: "ParkEasyMain-dev"
+        app: "ParkEasyMain2"
+        env: "ParkEasyMain2-dev"
         bucket_name: "elasticbeanstalk-us-east-1-490004620598"
-        bucket_path: "ParkEasyMain"
+        bucket_path: "ParkEasyMain2"
         zip_file: deploy_package.zip
         skip_cleanup: true
         on:

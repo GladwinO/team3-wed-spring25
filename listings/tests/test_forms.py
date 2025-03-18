@@ -1,91 +1,166 @@
 from django.test import TestCase
-from datetime import date, timedelta
-from ..forms import ListingForm, ReviewForm
+from django import forms
+from listings.forms import validate_non_overlapping_slots
+import datetime
 
 
-class ListingFormTest(TestCase):
-    def setUp(self):
-        self.valid_data = {
-            "title": "Test Listing",
-            "location": "Test Location",
-            "rent_per_hour": 10,
-            "description": "Test Description",
-            "available_from": date.today() + timedelta(days=1),
-            "available_until": date.today() + timedelta(days=2),
-            "available_time_from": "08:00",
-            "available_time_until": "18:00",
-        }
-
-    def test_listing_form_valid(self):
-        form = ListingForm(data=self.valid_data)
-        self.assertTrue(form.is_valid())
-
-    def test_listing_form_invalid_past_available_from(self):
-        data = self.valid_data.copy()
-        data["available_from"] = date.today() - timedelta(days=1)
-        form = ListingForm(data=data)
-        self.assertFalse(form.is_valid())
-        self.assertIn("available_from", form.errors)
-
-    def test_listing_form_invalid_past_available_until(self):
-        data = self.valid_data.copy()
-        data["available_until"] = date.today() - timedelta(days=1)
-        form = ListingForm(data=data)
-        self.assertFalse(form.is_valid())
-        self.assertIn("available_until", form.errors)
-
-    def test_listing_form_invalid_available_until_before_available_from(self):
-        data = self.valid_data.copy()
-        data["available_until"] = date.today() + timedelta(days=1)
-        data["available_from"] = date.today() + timedelta(days=2)
-        form = ListingForm(data=data)
-        self.assertFalse(form.is_valid())
-        self.assertIn("available_until", form.errors)
-
-    def test_listing_form_invalid_rent_per_hour(self):
-        data = self.valid_data.copy()
-        data["rent_per_hour"] = -5
-        form = ListingForm(data=data)
-        self.assertFalse(form.is_valid())
-        self.assertIn("__all__", form.errors)
-        self.assertIn("Rent per hour must be a positive number", form.errors["__all__"])
-
-    def test_listing_form_invalid_time_range(self):
-        data = self.valid_data.copy()
-        # Set same date for both from and until to test time validation
-        today = date.today() + timedelta(days=1)
-        data["available_from"] = today
-        data["available_until"] = today
-        data["available_time_from"] = "18:00"
-        data["available_time_until"] = "08:00"
-        form = ListingForm(data=data)
-        self.assertFalse(form.is_valid())
-        self.assertIn("available_time_until", form.errors)
-        self.assertIn(
-            "When start and end dates are the same, the end time must be after the start time",
-            str(form.errors["available_time_until"]),
-        )
+class MockForm:
+    def __init__(self, cleaned_data):
+        self.cleaned_data = cleaned_data
 
 
-class ReviewFormTest(TestCase):
-    def setUp(self):
-        self.valid_data = {
-            "rating": 5,
-            "comment": "Great place!",
-        }
+class TestValidateNonOverlappingSlots(TestCase):
+    def test_non_overlapping_slots_pass_validation(self):
+        """Test that non-overlapping slots pass validation."""
+        formset = [
+            MockForm(
+                {
+                    "start_date": datetime.date(2023, 1, 1),
+                    "start_time": "09:00",
+                    "end_date": datetime.date(2023, 1, 1),
+                    "end_time": "12:00",
+                }
+            ),
+            MockForm(
+                {
+                    "start_date": datetime.date(2023, 1, 1),
+                    "start_time": "13:00",
+                    "end_date": datetime.date(2023, 1, 1),
+                    "end_time": "15:00",
+                }
+            ),
+            MockForm(
+                {
+                    "start_date": datetime.date(2023, 1, 2),
+                    "start_time": "09:00",
+                    "end_date": datetime.date(2023, 1, 2),
+                    "end_time": "12:00",
+                }
+            ),
+        ]
 
-    def test_review_form_valid(self):
-        form = ReviewForm(data=self.valid_data)
-        self.assertTrue(form.is_valid())
+        # Should not raise an exception
+        validate_non_overlapping_slots(formset)
 
-    def test_review_form_invalid_rating(self):
-        data = self.valid_data.copy()
-        data["rating"] = 6
-        form = ReviewForm(data=data)
-        self.assertFalse(form.is_valid())
-        self.assertIn("rating", form.errors)
+    def test_adjacent_slots_pass_validation(self):
+        """Test that adjacent slots (one ends when another begins) pass validation."""
+        formset = [
+            MockForm(
+                {
+                    "start_date": datetime.date(2023, 1, 1),
+                    "start_time": "09:00",
+                    "end_date": datetime.date(2023, 1, 1),
+                    "end_time": "12:00",
+                }
+            ),
+            MockForm(
+                {
+                    "start_date": datetime.date(2023, 1, 1),
+                    "start_time": "12:00",
+                    "end_date": datetime.date(2023, 1, 1),
+                    "end_time": "15:00",
+                }
+            ),
+        ]
 
-        data["rating"] = 0
-        form = ReviewForm(data=data)
-        self.assertFalse(form.is_valid())
-        self.assertIn("rating", form.errors)
+        # Should not raise an exception
+        validate_non_overlapping_slots(formset)
+
+    def test_overlapping_slots_fail_validation(self):
+        """Test that overlapping slots fail validation."""
+        formset = [
+            MockForm(
+                {
+                    "start_date": datetime.date(2023, 1, 1),
+                    "start_time": "09:00",
+                    "end_date": datetime.date(2023, 1, 1),
+                    "end_time": "12:00",
+                }
+            ),
+            MockForm(
+                {
+                    "start_date": datetime.date(2023, 1, 1),
+                    "start_time": "11:00",
+                    "end_date": datetime.date(2023, 1, 1),
+                    "end_time": "14:00",
+                }
+            ),
+        ]
+
+        # Should raise ValidationError
+        with self.assertRaises(forms.ValidationError):
+            validate_non_overlapping_slots(formset)
+
+    def test_overlapping_across_days_fail_validation(self):
+        """Test that slots overlapping across days fail validation."""
+        formset = [
+            MockForm(
+                {
+                    "start_date": datetime.date(2023, 1, 1),
+                    "start_time": "20:00",
+                    "end_date": datetime.date(2023, 1, 2),
+                    "end_time": "10:00",
+                }
+            ),
+            MockForm(
+                {
+                    "start_date": datetime.date(2023, 1, 2),
+                    "start_time": "09:00",
+                    "end_date": datetime.date(2023, 1, 2),
+                    "end_time": "12:00",
+                }
+            ),
+        ]
+
+        # Should raise ValidationError
+        with self.assertRaises(forms.ValidationError):
+            validate_non_overlapping_slots(formset)
+
+    def test_deleted_form_ignored(self):
+        """Test that forms marked for deletion are ignored in validation."""
+        formset = [
+            MockForm(
+                {
+                    "start_date": datetime.date(2023, 1, 1),
+                    "start_time": "09:00",
+                    "end_date": datetime.date(2023, 1, 1),
+                    "end_time": "12:00",
+                }
+            ),
+            MockForm(
+                {
+                    "start_date": datetime.date(2023, 1, 1),
+                    "start_time": "11:00",
+                    "end_date": datetime.date(2023, 1, 1),
+                    "end_time": "14:00",
+                    "DELETE": True,  # This form should be ignored
+                }
+            ),
+        ]
+
+        # Should not raise an exception because the overlapping form is marked for deletion
+        validate_non_overlapping_slots(formset)
+
+    def test_incomplete_form_data_handled(self):
+        """Test that forms with missing fields don't cause errors."""
+        formset = [
+            MockForm(
+                {
+                    "start_date": datetime.date(2023, 1, 1),
+                    "start_time": "09:00",
+                    "end_date": datetime.date(2023, 1, 1),
+                    "end_time": "12:00",
+                }
+            ),
+            MockForm(
+                {
+                    "start_date": datetime.date(2023, 1, 1),
+                    # Missing start_time
+                    "end_date": datetime.date(2023, 1, 1),
+                    "end_time": "14:00",
+                }
+            ),
+        ]
+
+        # Should not raise an exception as incomplete forms are skipped
+        validate_non_overlapping_slots(formset)

@@ -1,14 +1,69 @@
-
 {% extends 'base.html' %}
+{% load widget_tweaks %}
+
+{% block title %}Register - ParkEasy{% endblock %}
 
 {% block content %}
-
-<h2>Register</h2>
-<form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Register</button>
-</form>
-<a href="{% url 'login' %}">Already have an account? Login</a>
-
+<div class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+      <div class="card shadow-sm border-0">
+        <div class="card-body p-4">
+          <h2 class="text-center mb-4">Create Account</h2>
+          
+          {% if form.errors %}
+            <div class="alert alert-danger">
+              <p>Please correct the following errors:</p>
+              <ul class="mb-0">
+                {% for field in form %}
+                  {% for error in field.errors %}
+                    <li>{{ error }}</li>
+                  {% endfor %}
+                {% endfor %}
+                {% for error in form.non_field_errors %}
+                  <li>{{ error }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% endif %}
+          
+          <form method="post" class="needs-validation" novalidate>
+            {% csrf_token %}
+            
+            <div class="mb-3">
+              <label for="id_username" class="form-label">Username</label>
+              {% render_field form.username class="form-control" placeholder="Choose a username" %}
+              {% if form.username.help_text %}
+                <div class="form-text small">{{ form.username.help_text }}</div>
+              {% endif %}
+            </div>
+            
+            <div class="mb-3">
+              <label for="id_password1" class="form-label">Password</label>
+              {% render_field form.password1 class="form-control" placeholder="Create a password" %}
+              {% if form.password1.help_text %}
+                <div class="form-text small">{{ form.password1.help_text|safe }}</div>
+              {% endif %}
+            </div>
+            
+            <div class="mb-4">
+              <label for="id_password2" class="form-label">Confirm Password</label>
+              {% render_field form.password2 class="form-control" placeholder="Confirm your password" %}
+              {% if form.password2.help_text %}
+                <div class="form-text small">{{ form.password2.help_text }}</div>
+              {% endif %}
+            </div>
+            
+            <div class="d-grid gap-2">
+              <button type="submit" class="btn btn-primary">Register</button>
+            </div>
+          </form>
+        </div>
+        <div class="card-footer text-center bg-white py-3">
+          <p class="mb-0">Already have an account? <a href="{% url 'login' %}" class="text-info">Login</a></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}

@@ -1,10 +1,137 @@
-{% extends 'base.html' %} {% block title %}Edit Listing{% endblock %} {% block content %}
+{% extends 'base.html' %}
+{% load widget_tweaks %}
+{% block title %}Edit Listing{% endblock %}
+
+{% block content %}
 <div class="container mt-5">
-    <h2 class="text-center">Edit Listing</h2>
-    <form method="post" class="p-3 border rounded">
-        {% csrf_token %} {{ form.as_p }}
-        <button type="submit" class="btn btn-primary">Save Changes</button>
-        <a href="{% url 'manage_listings' %}" class="btn btn-secondary">Cancel</a>
-    </form>
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-white py-3">
+          <h3 class="mb-0 fw-bold">
+            <i class="fas fa-edit text-primary me-2"></i> Edit Listing
+          </h3>
+        </div>
+        <div class="card-body p-4">
+          {% if form.errors %}
+          <div class="alert alert-danger">
+            <i class="fas fa-exclamation-circle me-2"></i> Please correct the errors below.
+          </div>
+          {% endif %}
+  
+          <form method="post">
+            {% csrf_token %}
+            
+            <div class="mb-3">
+              <label for="{{ form.title.id_for_label }}" class="form-label">
+                <i class="fas fa-heading text-secondary me-2"></i> Title
+              </label>
+              {% render_field form.title class="form-control" placeholder="Enter listing title" %}
+              {% if form.title.errors %}
+              <div class="text-danger small mt-1">{{ form.title.errors }}</div>
+              {% endif %}
+            </div>
+            
+            <div class="mb-3">
+              <label for="{{ form.description.id_for_label }}" class="form-label">
+                <i class="fas fa-info-circle text-secondary me-2"></i> Description
+              </label>
+              {% render_field form.description class="form-control" placeholder="Describe your parking spot" rows="4" %}
+              {% if form.description.errors %}
+              <div class="text-danger small mt-1">{{ form.description.errors }}</div>
+              {% endif %}
+            </div>
+            
+            <div class="mb-3">
+              <label for="{{ form.location.id_for_label }}" class="form-label">
+                <i class="fas fa-map-marker-alt text-secondary me-2"></i> Location
+              </label>
+              {% render_field form.location class="form-control" placeholder="Enter the address" %}
+              {% if form.location.errors %}
+              <div class="text-danger small mt-1">{{ form.location.errors }}</div>
+              {% endif %}
+            </div>
+            
+            <div class="mb-3">
+              {% render_field form.location_name class="form-control" placeholder="Friendly location name (e.g. Downtown Parking)" %}
+              {% if form.location_name.errors %}
+              <div class="text-danger small mt-1">{{ form.location_name.errors }}</div>
+              {% endif %}
+            </div>
+            
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label for="{{ form.rent_per_hour.id_for_label }}" class="form-label">
+                  <i class="fas fa-tag text-secondary me-2"></i> Price per Hour
+                </label>
+                {% render_field form.rent_per_hour class="form-control" placeholder="$0.00" step="0.01" %}
+                {% if form.rent_per_hour.errors %}
+                <div class="text-danger small mt-1">{{ form.rent_per_hour.errors }}</div>
+                {% endif %}
+              </div>
+            </div>
+            
+            <h5 class="mt-4 mb-3 text-secondary">
+              <i class="fas fa-calendar-alt me-2"></i> Availability
+            </h5>
+            
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label for="{{ form.available_from.id_for_label }}" class="form-label">Available From</label>
+                {% render_field form.available_from class="form-control" %}
+                {% if form.available_from.errors %}
+                <div class="text-danger small mt-1">{{ form.available_from.errors }}</div>
+                {% endif %}
+              </div>
+              <div class="col-md-6">
+                <label for="{{ form.available_until.id_for_label }}" class="form-label">Available Until</label>
+                {% render_field form.available_until class="form-control" %}
+                {% if form.available_until.errors %}
+                <div class="text-danger small mt-1">{{ form.available_until.errors }}</div>
+                {% endif %}
+              </div>
+            </div>
+            
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label for="{{ form.available_time_from.id_for_label }}" class="form-label">Available From (Time)</label>
+                {% render_field form.available_time_from class="form-control" %}
+                {% if form.available_time_from.errors %}
+                <div class="text-danger small mt-1">{{ form.available_time_from.errors }}</div>
+                {% endif %}
+              </div>
+              <div class="col-md-6">
+                <label for="{{ form.available_time_until.id_for_label }}" class="form-label">Available Until (Time)</label>
+                {% render_field form.available_time_until class="form-control" %}
+                {% if form.available_time_until.errors %}
+                <div class="text-danger small mt-1">{{ form.available_time_until.errors }}</div>
+                {% endif %}
+              </div>
+            </div>
+            
+            <!-- Added Interval Functionality -->
+            <hr>
+            <h4>Edit Availability Slots</h4>
+            {{ slot_formset.management_form }}
+            {% for slot_form in slot_formset %}
+              <div class="border p-3 mb-3">
+                <h5>Time Slot {{ forloop.counter }}</h5>
+                {{ slot_form.as_p }}
+              </div>
+            {% endfor %}
+            
+            <div class="mt-4 d-flex justify-content-between">
+              <a href="{% url 'manage_listings' %}" class="btn btn-secondary">
+                <i class="fas fa-times me-1"></i> Cancel
+              </a>
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save me-1"></i> Save Changes
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}

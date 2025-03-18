@@ -11,4 +11,5 @@ urlpatterns = [
         name="manage_booking",
     ),
     path("review/<int:booking_id>/", views.review_booking, name="review_booking"),
+    path("available_times/", views.available_times, name="available_times"),
 ]

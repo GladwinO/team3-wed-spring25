@@ -1,0 +1,33 @@
+/* Map container styles */
+#map {
+    height: 400px;
+    width: 100%;
+    margin-bottom: 1rem;
+}
+
+.view-toggle {
+    margin-bottom: 20px;
+  }
+  #map-view {
+    height: 600px;
+  }
+  .view-container {
+    display: none; /* Hide by default */
+  }
+  .active-view {
+    display: block !important; /* Show when active */
+  }
+  .rating-stars {
+    display: inline-block;
+    margin: 0 5px;
+  }
+  .rating-stars i {
+    color: #ffd700; /* Gold color for stars */
+    font-size: 14px;
+    margin-right: 2px;
+  }
+  .rating-number {
+    color: #666;
+    font-size: 0.9em;
+    margin-left: 5px;
+  }

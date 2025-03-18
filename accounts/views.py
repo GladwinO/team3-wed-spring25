@@ -1,10 +1,10 @@
-from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout
-from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
+from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
+from django.shortcuts import redirect, render
 
 
 def home(request):
-    return render(request, "home.html")
+    return redirect("view_listings")
 
 
 def register(request):
