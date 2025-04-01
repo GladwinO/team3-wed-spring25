@@ -53,36 +53,17 @@
             <!-- Rating Block -->
             <div class="mb-2">
               <p class="card-text mb-1 small fw-bold">Rating:</p>
-              {% if listing.avg_rating %}
               <div class="d-flex align-items-center">
-                <div class="rating-stars me-2">
-                  {% with rating_val=listing.avg_rating|floatformat:1|add:"0" %}
-                    {% for i in "12345" %}
-                      {% if forloop.counter <= rating_val %}
-                        <i class="fas fa-star text-warning"></i>
-                      {% elif forloop.counter|add:"-0.5" <= rating_val %}
-                        <i class="fas fa-star-half-alt text-warning"></i>
-                      {% else %}
-                        <i class="far fa-star text-warning"></i>
-                      {% endif %}
-                    {% endfor %}
-                  {% endwith %}
-                </div>
-                <span class="badge bg-warning text-dark fw-bold">{{ listing.avg_rating|floatformat:1 }}</span>
-                <span class="badge bg-light text-muted ms-2">
-                  {{ listing.rating_count }} {% if listing.rating_count == 1 %}rating{% else %}ratings{% endif %}
-                </span>
+                <span class="rating-stars me-2" data-rating="{{ listing.avg_rating }}"></span>
+                {% if listing.avg_rating %}
+                  <span class="badge bg-warning text-dark fw-bold">{{ listing.avg_rating|floatformat:1 }}</span>
+                  <span class="badge bg-light text-muted ms-2">
+                    {{ listing.rating_count }} {% if listing.rating_count == 1 %}rating{% else %}ratings{% endif %}
+                  </span>
+                {% else %}
+                  <span class="badge bg-light text-muted">No ratings yet</span>
+                {% endif %}
               </div>
-              {% else %}
-              <div class="d-flex align-items-center">
-                <div class="rating-stars me-2">
-                  {% for _ in "12345" %}
-                    <i class="far fa-star text-warning"></i>
-                  {% endfor %}
-                </div>
-                <span class="badge bg-light text-muted">No ratings</span>
-              </div>
-              {% endif %}
             </div>
 
             <!-- User Info and Buttons -->
@@ -117,8 +98,7 @@
   
   {% if has_next %}
   <div class="text-center my-4">
-    <button id="load-more-btn" class="btn btn-accent" data-next-page="{{ next_page }}">
-      <i class="fas fa-spinner me-2"></i> Load More Listings
+    <button id="load-more-btn" class="btn btn-accent" data-next-page="{{ next_page }}"> Load More Listings
     </button>
   </div>
   {% endif %}

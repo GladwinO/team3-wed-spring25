@@ -1,6 +1,5 @@
 {% extends 'base.html' %}
 {% load static %}
-{% load listing_extras %}
 
 {% block extra_head %}
 <!-- Leaflet CSS -->
@@ -73,11 +72,6 @@
               <label class="form-check-label" for="filter_single">Single Interval</label>
             </div>
             <div class="form-check form-check-inline">
-              <input class="form-check-input" type="radio" name="filter_type" id="filter_multiple" value="multiple"
-                     {% if filter_type == "multiple" %}checked{% endif %}>
-              <label class="form-check-label" for="filter_multiple">Multiple Intervals</label>
-            </div>
-            <div class="form-check form-check-inline">
               <input class="form-check-input" type="radio" name="filter_type" id="filter_recurring" value="recurring"
                      {% if filter_type == "recurring" %}checked{% endif %}>
               <label class="form-check-label" for="filter_recurring">Recurring</label>
@@ -85,7 +79,6 @@
           </div>
         </div>
         
-        <!-- Action Buttons - moved from bottom to top right -->
         <div class="col-md-6 text-md-end">
           <button type="submit" class="btn btn-primary">
             <i class="fas fa-filter me-1"></i> Filter
@@ -129,52 +122,6 @@
                 <option value="{{ value }}" {% if request.GET.end_time == value %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
             </select>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Multiple Intervals Filter Section -->
-      <div id="multiple-filter" class="mt-3" {% if filter_type != "multiple" %}style="display:none;"{% endif %}>
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <h6 class="filter-section-title mb-0"><i class="fas fa-calendar-week me-2"></i>Multiple Time Intervals</h6>
-          <button type="button" id="add-interval" class="btn btn-accent btn-sm">
-            <i class="fas fa-plus-circle me-1"></i> Add Interval
-          </button>
-        </div>
-        
-        <!-- A hidden field for interval count -->
-        <input type="hidden" name="interval_count" id="interval_count" value="{{ interval_count|default:"1" }}">
-        <div id="intervals-container">
-          <!-- One interval row by default -->
-          <div class="row interval-row g-2 mb-2" data-index="1">
-            <div class="col-md-3">
-              <label for="start_date_1" class="form-label small">Start Date</label>
-              <input type="date" class="form-control form-control-sm" id="start_date_1" name="start_date_1"
-                     value="{{ request.GET.start_date_1|default_if_none:'' }}">
-            </div>
-            <div class="col-md-3">
-              <label for="end_date_1" class="form-label small">End Date</label>
-              <input type="date" class="form-control form-control-sm" id="end_date_1" name="end_date_1"
-                     value="{{ request.GET.end_date_1|default_if_none:'' }}">
-            </div>
-            <div class="col-md-3">
-              <label for="start_time_1" class="form-label small">Start Time</label>
-              <select class="form-select form-select-sm" id="start_time_1" name="start_time_1">
-                <option value="">Select time</option>
-                {% for value, label in half_hour_choices %}
-                  <option value="{{ value }}" {% if request.GET.start_time_1 == value %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-md-3">
-              <label for="end_time_1" class="form-label small">End Time</label>
-              <select class="form-select form-select-sm" id="end_time_1" name="end_time_1">
-                <option value="">Select time</option>
-                {% for value, label in half_hour_choices %}
-                  <option value="{{ value }}" {% if request.GET.end_time_1 == value %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-              </select>
-            </div>
           </div>
         </div>
       </div>
@@ -276,142 +223,15 @@
       </div>
     </form>
 
-  <!-- List View print -->
-  <div
-    id="list-view"
-    class="view-container listings-container p-3 border rounded active-view"
-  >
-    {% for listing in listings %}
-    <div
-      class="card shadow-sm mb-3 border-0 h-100"
-      data-location="{{ listing.location }}"
-      data-location-name="{{ listing.location_name }}"
-      data-price="{{ listing.rent_per_hour }}"
-      data-title="{{ listing.title }}"
-      data-rating="{{ listing.avg_rating|default:0 }}"
-    >
-      <div class="card-body p-3">
-        <div class="row g-3">
-          <!-- Listing Title and Main Info -->
-          <div class="col-md-5">
-            <div class="d-flex align-items-center mb-2">
-              <h3 class="card-title fw-bold mb-0 me-2">{{ listing.title }}</h3>
-              {% if user == listing.user %}
-                <span class="badge bg-secondary"><i class="fas fa-user-check me-1"></i> Your listing</span>
-              {% else %}
-                <span class="badge bg-light text-dark border"><i class="fas fa-user me-1"></i> {{ listing.user.username }}</span>
-              {% endif %}
-            </div>
-            
-            <div class="mb-2">
-              <!-- Location with icon -->
-              <p class="card-text d-flex align-items-center mb-1">
-                <i class="fas fa-map-marker-alt text-secondary me-2"></i>
-                <span>{{ listing.location_name }}</span>
-              </p>
-
-              <!-- Description with icon -->
-              <p class="card-text small text-muted mb-2">
-                <i class="fas fa-info-circle text-secondary me-2"></i>
-                {{ listing.description|truncatechars:120 }}
-              </p>
-            </div>
-          </div>
-
-          <!-- Availability and Price Info -->
-          <div class="col-md-4">
-            <div class="d-flex flex-column h-100 justify-content-center">
-              <!-- Price with icon -->
-              <p class="card-text d-flex align-items-center mb-1">
-                <i class="fas fa-tag text-secondary me-2"></i>
-                <span>${{ listing.rent_per_hour }}/hour</span>
-              </p>
-            </div>
-          </div>
-
-          <!-- Rating and Actions -->
-          <div class="col-md-3">
-            <div class="d-flex flex-column h-100 justify-content-between">
-              <!-- Corrected Rating Block -->
-              <div class="mb-2">
-                <p class="card-text mb-1 small fw-bold">Rating:</p>
-                {% if listing.avg_rating %}
-                <div class="d-flex align-items-center">
-                  <div class="rating-stars me-2">
-                    {% with rating_val=listing.avg_rating|floatformat:1|add:"0" %}
-                      {% for i in "12345" %}
-                        {% if forloop.counter <= rating_val %}
-                          <i class="fas fa-star text-warning"></i>
-                        {% elif forloop.counter|add:"-0.5" <= rating_val %}
-                          <i class="fas fa-star-half-alt text-warning"></i>
-                        {% else %}
-                          <i class="far fa-star text-warning"></i>
-                        {% endif %}
-                      {% endfor %}
-                    {% endwith %}
-                  </div>
-                  <span class="badge bg-warning text-dark fw-bold">{{ listing.avg_rating|floatformat:1 }}</span>
-                  <span class="badge bg-light text-muted ms-2">
-                    {{ listing.rating_count }} {% if listing.rating_count == 1 %}rating{% else %}ratings{% endif %}
-                  </span>
-                </div>
-                {% else %}
-                <div class="d-flex align-items-center">
-                  <div class="rating-stars me-2">
-                    {% for _ in "12345" %}
-                      <i class="far fa-star text-warning"></i>
-                    {% endfor %}
-                  </div>
-                  <span class="badge bg-warning text-dark fw-bold">0.0</span>
-                  <span class="badge bg-light text-muted ms-2">No ratings yet</span>
-                </div>
-                {% endif %}
-              </div>
-
-              <!-- User Info and Buttons -->
-              <div>
-                {% if user != listing.user %}
-                  <div class="d-grid gap-2">
-                    <a href="{% url 'book_listing' listing.id %}" class="btn btn-primary btn-sm">
-                      <i class="fas fa-calendar-check me-1"></i> Book Now
-                    </a>
-                    <a href="{% url 'listing_reviews' listing.id %}" class="btn btn-secondary btn-sm">
-                      <i class="fas fa-comment me-1"></i> Reviews
-                    </a>
-                  </div>
-                {% else %}
-                  <div class="d-grid">
-                    <a href="{% url 'listing_reviews' listing.id %}" class="btn btn-secondary btn-sm">
-                      <i class="fas fa-comment me-1"></i> Reviews
-                    </a>
-                  </div>
-                {% endif %}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    {% empty %}
-    <div class="text-center p-4">
-      <p>No parking spots available that match your filters.</p>
-    </div>
-    {% endfor %}
-    {% if has_next %}
-    <div class="text-center my-4">
-      <button id="load-more-btn" class="btn btn-accent" data-next-page="{{ next_page }}">
-        Load More Listings
-      </button>
-    </div>
-    {% endif %}
+  <!-- List View -->
+  <div id="list-view" class="view-container listings-container p-3 border rounded active-view">
+    {% include "listings/partials/listing_cards.html" with listing=listing %}
   </div>
-
   <!-- Map View -->
   <div id="map-view" class="view-container border rounded">
     <!-- The map will be initialized here -->
   </div>
 
-</div>
 {% endblock %}
 
 {% block scripts %}
@@ -421,6 +241,5 @@
   integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
   crossorigin=""
 ></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
 <script src="{% static 'listings/js/view_listings.js' %}"></script>
 {% endblock %}

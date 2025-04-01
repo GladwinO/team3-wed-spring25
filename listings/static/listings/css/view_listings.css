@@ -17,15 +17,6 @@
   .active-view {
     display: block !important; /* Show when active */
   }
-  .rating-stars {
-    display: inline-block;
-    margin: 0 5px;
-  }
-  .rating-stars i {
-    color: #ffd700; /* Gold color for stars */
-    font-size: 14px;
-    margin-right: 2px;
-  }
   .rating-number {
     color: #666;
     font-size: 0.9em;

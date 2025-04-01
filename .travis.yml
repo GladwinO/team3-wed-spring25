@@ -53,6 +53,7 @@ jobs:
         - zip -r deploy_package.zip . -x "*.git*" -x "**/__pycache__/*" -x "*.pyc" -x "venv/*"
       deploy:
         provider: elasticbeanstalk
+        edge: true # Use the edge provider for Elastic Beanstalk
         access_key_id: "$AWS_ACCESS_KEY_ID_INT"
         secret_access_key: "$AWS_SECRET_ACCESS_KEY_INT"
         region: "us-east-1"
@@ -70,6 +71,7 @@ jobs:
         - zip -r deploy_package.zip . -x "*.git*" -x "**/__pycache__/*" -x "*.pyc" -x "venv/*"
       deploy:
         provider: elasticbeanstalk
+        edge: true # Use the edge provider for Elastic Beanstalk
         access_key_id: "$AWS_ACCESS_KEY_ID_MAIN"
         secret_access_key: "$AWS_SECRET_ACCESS_KEY_MAIN"
         region: "us-east-1"

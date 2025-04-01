@@ -1,6 +1,11 @@
 {% extends 'base.html' %}
 {% load widget_tweaks %}
+{% load static %}
 {% block title %}Edit Listing{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'listings/css/edit_listings.css' %}">
+{% endblock %}
 
 {% block content %}
 <div class="container mt-5">
@@ -13,114 +18,174 @@
           </h3>
         </div>
         <div class="card-body p-4">
-          {% if form.errors %}
-          <div class="alert alert-danger">
-            <i class="fas fa-exclamation-circle me-2"></i> Please correct the errors below.
+          <!-- Unified Alert Message -->
+          {% if alert_message %}
+          <div class="alert alert-danger" role="alert">
+            <i class="fas fa-exclamation-circle me-2"></i>
+            {{ alert_message }}
           </div>
           {% endif %}
-  
-          <form method="post">
+
+          <form method="post" id="edit-listing-form">
             {% csrf_token %}
-            
-            <div class="mb-3">
-              <label for="{{ form.title.id_for_label }}" class="form-label">
-                <i class="fas fa-heading text-secondary me-2"></i> Title
-              </label>
-              {% render_field form.title class="form-control" placeholder="Enter listing title" %}
-              {% if form.title.errors %}
-              <div class="text-danger small mt-1">{{ form.title.errors }}</div>
-              {% endif %}
+
+            <!-- Basic Listing Details -->
+            <h4 class="mb-3">
+              <i class="fas fa-info-circle me-2"></i>Spot Details
+            </h4>
+            <div class="row mb-4">
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="{{ form.title.id_for_label }}" class="form-label">
+                    <i class="fas fa-heading text-secondary me-1"></i> Spot Title
+                  </label>
+                  {{ form.title|add_class:"form-control"|attr:"placeholder:Short, descriptive title" }}
+                  {% if form.title.errors %}
+                    <div class="text-danger small mt-1">{{ form.title.errors }}</div>
+                  {% endif %}
+                </div>
+                <div class="mb-3">
+                  <label for="{{ form.rent_per_hour.id_for_label }}" class="form-label">
+                    <i class="fas fa-tag text-secondary me-1"></i> Price per Hour ($)
+                  </label>
+                  {{ form.rent_per_hour|add_class:"form-control"|attr:"placeholder:10.00" }}
+                  {% if form.rent_per_hour.errors %}
+                    <div class="text-danger small mt-1">{{ form.rent_per_hour.errors }}</div>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="{{ form.description.id_for_label }}" class="form-label">
+                    <i class="fas fa-align-left text-secondary me-1"></i> Description
+                  </label>
+                  {{ form.description|add_class:"form-control"|attr:"placeholder:Describe your spot"|attr:"rows:5" }}
+                  {% if form.description.errors %}
+                    <div class="text-danger small mt-1">{{ form.description.errors }}</div>
+                  {% endif %}
+                </div>
+              </div>
             </div>
-            
-            <div class="mb-3">
-              <label for="{{ form.description.id_for_label }}" class="form-label">
-                <i class="fas fa-info-circle text-secondary me-2"></i> Description
-              </label>
-              {% render_field form.description class="form-control" placeholder="Describe your parking spot" rows="4" %}
-              {% if form.description.errors %}
-              <div class="text-danger small mt-1">{{ form.description.errors }}</div>
-              {% endif %}
-            </div>
-            
-            <div class="mb-3">
+
+            <!-- Location -->
+            <h4 class="mb-3">
+              <i class="fas fa-map-marker-alt me-2"></i>Location
+            </h4>
+            <div class="mb-4">
               <label for="{{ form.location.id_for_label }}" class="form-label">
-                <i class="fas fa-map-marker-alt text-secondary me-2"></i> Location
+                <i class="fas fa-map-pin text-secondary me-1"></i> Address / Coordinates
               </label>
-              {% render_field form.location class="form-control" placeholder="Enter the address" %}
+              {{ form.location|add_class:"form-control"|attr:"placeholder:Enter address or lat/lng" }}
               {% if form.location.errors %}
-              <div class="text-danger small mt-1">{{ form.location.errors }}</div>
+                <div class="text-danger small mt-1">{{ form.location.errors }}</div>
               {% endif %}
             </div>
-            
-            <div class="mb-3">
-              {% render_field form.location_name class="form-control" placeholder="Friendly location name (e.g. Downtown Parking)" %}
-              {% if form.location_name.errors %}
-              <div class="text-danger small mt-1">{{ form.location_name.errors }}</div>
-              {% endif %}
-            </div>
-            
-            <div class="row mb-3">
-              <div class="col-md-6">
-                <label for="{{ form.rent_per_hour.id_for_label }}" class="form-label">
-                  <i class="fas fa-tag text-secondary me-2"></i> Price per Hour
-                </label>
-                {% render_field form.rent_per_hour class="form-control" placeholder="$0.00" step="0.01" %}
-                {% if form.rent_per_hour.errors %}
-                <div class="text-danger small mt-1">{{ form.rent_per_hour.errors }}</div>
-                {% endif %}
-              </div>
-            </div>
-            
-            <h5 class="mt-4 mb-3 text-secondary">
-              <i class="fas fa-calendar-alt me-2"></i> Availability
-            </h5>
-            
-            <div class="row mb-3">
-              <div class="col-md-6">
-                <label for="{{ form.available_from.id_for_label }}" class="form-label">Available From</label>
-                {% render_field form.available_from class="form-control" %}
-                {% if form.available_from.errors %}
-                <div class="text-danger small mt-1">{{ form.available_from.errors }}</div>
-                {% endif %}
-              </div>
-              <div class="col-md-6">
-                <label for="{{ form.available_until.id_for_label }}" class="form-label">Available Until</label>
-                {% render_field form.available_until class="form-control" %}
-                {% if form.available_until.errors %}
-                <div class="text-danger small mt-1">{{ form.available_until.errors }}</div>
-                {% endif %}
-              </div>
-            </div>
-            
-            <div class="row mb-3">
-              <div class="col-md-6">
-                <label for="{{ form.available_time_from.id_for_label }}" class="form-label">Available From (Time)</label>
-                {% render_field form.available_time_from class="form-control" %}
-                {% if form.available_time_from.errors %}
-                <div class="text-danger small mt-1">{{ form.available_time_from.errors }}</div>
-                {% endif %}
-              </div>
-              <div class="col-md-6">
-                <label for="{{ form.available_time_until.id_for_label }}" class="form-label">Available Until (Time)</label>
-                {% render_field form.available_time_until class="form-control" %}
-                {% if form.available_time_until.errors %}
-                <div class="text-danger small mt-1">{{ form.available_time_until.errors }}</div>
-                {% endif %}
-              </div>
-            </div>
-            
-            <!-- Added Interval Functionality -->
-            <hr>
-            <h4>Edit Availability Slots</h4>
+
+            <!-- Availability Slots -->
+            <h4 class="mb-3">
+              <i class="fas fa-calendar-alt me-2"></i>Edit Availability Slots
+            </h4>
+            <p class="text-muted small">
+              <i class="fas fa-info-circle me-1"></i> Define or adjust the time slots when your spot is available.
+            </p>
+
             {{ slot_formset.management_form }}
-            {% for slot_form in slot_formset %}
-              <div class="border p-3 mb-3">
-                <h5>Time Slot {{ forloop.counter }}</h5>
-                {{ slot_form.as_p }}
+            <div id="slot-forms-container">
+              {% for slot_form in slot_formset %}
+                <div class="slot-form" data-index="{{ forloop.counter0 }}">
+                  <!-- Red delete cross button -->
+                  <button type="button" class="delete-slot" title="Delete this slot">
+                    <i class="fas fa-times"></i>
+                  </button>
+
+                  <h5 class="mb-3">
+                    <i class="fas fa-clock text-secondary me-2"></i>Time Slot {{ forloop.counter }}
+                  </h5>
+
+                  <div class="row">
+                    <div class="col-md-6 mb-3">
+                      <div class="row">
+                        <div class="col-md-6 mb-3">
+                          <label class="form-label">Start Date</label>
+                          {{ slot_form.start_date|add_class:"form-control" }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                          <label class="form-label">End Date</label>
+                          {{ slot_form.end_date|add_class:"form-control" }}
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                      <div class="row">
+                        <div class="col-md-6 mb-3">
+                          <label class="form-label">Start Time</label>
+                          {{ slot_form.start_time|add_class:"form-select" }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                          <label class="form-label">End Time</label>
+                          {{ slot_form.end_time|add_class:"form-select" }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Hidden primary key field -->
+                  {{ slot_form.id }}
+                  <!-- Hidden DELETE field for existing slots -->
+                  {% if slot_form.DELETE %}
+                    {{ slot_form.DELETE }}
+                  {% endif %}
+                </div>
+              {% endfor %}
+            </div>
+
+            <div class="mb-4">
+              <button type="button" class="btn btn-primary" id="add-slot-btn">
+                <i class="fas fa-plus-circle me-1"></i> Add Interval
+              </button>
+            </div>
+
+            <!-- Template for a new blank slot -->
+            <div id="empty-slot-template" style="display: none;">
+              <div class="slot-form" data-index="__prefix__">
+                <button type="button" class="delete-slot" title="Delete this slot">
+                  <i class="fas fa-times"></i>
+                </button>
+                <h5 class="mb-3">
+                  <i class="fas fa-clock text-secondary me-2"></i>Time Slot __num__
+                </h5>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <div class="row">
+                      <div class="col-md-6 mb-3">
+                        <label class="form-label">Start Date</label>
+                        {{ slot_formset.empty_form.start_date|add_class:"form-control" }}
+                      </div>
+                      <div class="col-md-6 mb-3">
+                        <label class="form-label">End Date</label>
+                        {{ slot_formset.empty_form.end_date|add_class:"form-control" }}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <div class="row">
+                      <div class="col-md-6 mb-3">
+                        <label class="form-label">Start Time</label>
+                        {{ slot_formset.empty_form.start_time|add_class:"form-select" }}
+                      </div>
+                      <div class="col-md-6 mb-3">
+                        <label class="form-label">End Time</label>
+                        {{ slot_formset.empty_form.end_time|add_class:"form-select" }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {{ slot_formset.empty_form.id }}
               </div>
-            {% endfor %}
-            
-            <div class="mt-4 d-flex justify-content-between">
+            </div>
+
+            <!-- Save/Cancel Buttons -->
+            <div class="d-flex justify-content-between mt-4">
               <a href="{% url 'manage_listings' %}" class="btn btn-secondary">
                 <i class="fas fa-times me-1"></i> Cancel
               </a>
@@ -134,4 +199,32 @@
     </div>
   </div>
 </div>
+
+<!-- Hidden Warning Modal -->
+<div id="warning-modal" class="warning-modal" style="display: none;">
+  <div class="warning-modal-content">
+    <span class="warning-modal-close" style="cursor:pointer;">&times;</span>
+    <p id="warning-modal-message"></p>
+  </div>
+</div>
+
+<!-- Pass block warning message from server (if any) -->
+{% if block_warning %}
+<script>
+  var blockWarningMessage = "{{ block_warning|escapejs }}";
+</script>
+{% else %}
+<script>
+  var blockWarningMessage = "";
+</script>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'listings/js/edit_listings.js' %}"></script>
+{% if block_warning %}
+<script>
+  alert(blockWarningMessage);
+</script>
+{% endif %}
 {% endblock %}

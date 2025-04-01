@@ -1,26 +1,35 @@
 import random
-from datetime import datetime, timedelta, date, time
-from django.core.management.base import BaseCommand
+from datetime import date, datetime, time, timedelta
+
 from django.contrib.auth.models import User
-from listings.models import Listing, ListingSlot, Review
-from booking.models import Booking, BookingSlot
-from faker import Faker
+from django.core.management.base import BaseCommand
 from django.utils import timezone
+from faker import Faker
+
+from accounts.utilities import get_valid_nyc_coordinate
+from booking.models import Booking, BookingSlot
+from listings.models import Listing, ListingSlot, Review
+
+# Import block_out_booking so that approved bookings subtract availability.
+from booking.utils import block_out_booking
 
 
 class Command(BaseCommand):
     help = "Create fake data: 10 users, 100 listings, 200 bookings, and 100 reviews"
 
     def handle(self, *args, **kwargs):
-        # Check if fake data already exists by verifying the existence of "user1"
+        # Check if fake data exists by verifying the existence of "user1"
         if User.objects.filter(username="user1").exists():
-            self.stdout.write(
-                self.style.WARNING(
-                    "Fake data already exists (user1 found). No changes made."
-                )
-            )
-            return 0
+            self.stdout.write("Existing fake data found. Deleting...")
 
+            # Delete all users created by this script (user1 through user10)
+            for i in range(1, 11):
+                username = f"user{i}"
+                User.objects.filter(username=username).delete()
+
+            self.stdout.write(self.style.SUCCESS("Existing fake data deleted."))
+
+        # Continue with creating new fake data...
         fake = Faker()
         users = []
 
@@ -37,14 +46,17 @@ class Command(BaseCommand):
             users.append(user)
             self.stdout.write(self.style.SUCCESS(f"User created: {username}"))
 
-        # Create 100 listings (all located on 5th Avenue, NYC)
+        # Create 100 listings with valid NYC coordinates
         self.stdout.write("Creating listings...")
         listings = []
         for i in range(1, 101):
             user = random.choice(users)
             title = f"Listing #{i}"
-            street_number = random.randint(1, 500)
-            location = f"{street_number} 5th Avenue, NYC"
+
+            # Generate valid NYC coordinates
+            latitude, longitude = get_valid_nyc_coordinate()
+            location = f"Sample Location {i} [{latitude},{longitude}]"
+
             rent_per_hour = round(random.uniform(10.00, 50.00), 2)
             description = fake.text(max_nb_chars=200)
             listing = Listing.objects.create(
@@ -55,7 +67,9 @@ class Command(BaseCommand):
                 description=description,
             )
             listings.append(listing)
-            self.stdout.write(self.style.SUCCESS(f"Listing created: {title}"))
+            self.stdout.write(
+                self.style.SUCCESS(f"Listing created: {title} at {location}")
+            )
 
         # Create ListingSlots for each listing (1 to 3 slots per listing)
         self.stdout.write("Creating listing slots...")
@@ -164,7 +178,6 @@ class Command(BaseCommand):
             duration = random.choice(possible_durations)
             booking_end_dt = booking_start_dt + timedelta(minutes=duration)
 
-            # Extract dates and times (zero out seconds/microseconds)
             bs_start_date = booking_start_dt.date()
             bs_start_time = booking_start_dt.time().replace(second=0, microsecond=0)
             bs_end_date = booking_end_dt.date()
@@ -184,6 +197,10 @@ class Command(BaseCommand):
                         #{booking.pk}: {bs_start_date} {bs_start_time} - {bs_end_date} {bs_end_time}"
                 )
             )
+            # --- NEW: Subtract booking interval from listing availability if approved ---
+            if booking.status == "APPROVED":
+                block_out_booking(listing, booking)
+            # --- END NEW ---
 
         # Create 100 reviews for random bookings; each review's created_at is before March 2025.
         self.stdout.write("Creating reviews...")
@@ -200,7 +217,6 @@ class Command(BaseCommand):
                 rating=rating,
                 comment=comment,
             )
-            # Generate a random datetime between start_date_dt and end_date_dt
             delta = end_date_dt - start_date_dt
             random_seconds = random.randint(0, int(delta.total_seconds()))
             random_date = start_date_dt + timedelta(seconds=random_seconds)

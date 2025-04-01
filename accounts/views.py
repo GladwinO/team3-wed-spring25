@@ -1,6 +1,7 @@
 from django.contrib.auth import login, logout
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.shortcuts import redirect, render
+from django.contrib.auth.decorators import login_required
 
 
 def home(request):
@@ -62,3 +63,9 @@ def verify(request):
 
     # If GET or POST with errors, render the form as normal
     return render(request, "accounts/verify.html", context)
+
+
+@login_required
+def profile_view(request):
+    # Render the user's profile page
+    return render(request, "accounts/profile.html", {"user": request.user})
