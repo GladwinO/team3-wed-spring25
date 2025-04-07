@@ -1,14 +1,39 @@
 document.addEventListener("DOMContentLoaded", function() {
-  // ============================
+  // ------------------------------
+  // Function to display error as red alert bar
+  // ------------------------------
+  function showClientError(message) {
+    var clientAlert = document.getElementById("client-alert");
+    if (!clientAlert) {
+      clientAlert = document.createElement("div");
+      clientAlert.id = "client-alert";
+      clientAlert.className = "alert alert-danger";
+      clientAlert.innerHTML = '<i class="fas fa-exclamation-circle me-2"></i>' + message;
+      // Insert at the top of the card body if available
+      var cardBody = document.querySelector(".card-body.p-4");
+      if (cardBody) {
+        cardBody.insertBefore(clientAlert, cardBody.firstChild);
+      } else {
+        // Fallback: prepend to the form
+        var editListingForm = document.getElementById("edit-listing-form");
+        if (editListingForm) {
+          editListingForm.prepend(clientAlert);
+        }
+      }
+    } else {
+      clientAlert.innerHTML = '<i class="fas fa-exclamation-circle me-2"></i>' + message;
+    }
+  }
+  
+  // ------------------------------
   // Add/Remove Slot Form Logic
-  // ============================
+  // ------------------------------
   var addSlotBtn = document.getElementById("add-slot-btn");
   var slotFormsContainer = document.getElementById("slot-forms-container");
   var emptyTemplate = document.getElementById("empty-slot-template").innerHTML;
   var totalFormsInput = document.querySelector('[name="form-TOTAL_FORMS"]');
 
   // Update form indices after adding or removing slots.
-  // (Modified: Do NOT reset the select's value so that the server-rendered initial remains.)
   function updateFormIndices() {
     var slotDivs = slotFormsContainer.querySelectorAll(".slot-form");
     slotDivs.forEach(function(div, idx) {
@@ -27,7 +52,6 @@ document.addEventListener("DOMContentLoaded", function() {
         if (el.id) {
           el.id = el.id.replace(/id_form-\d+-/, "id_form-" + idx + "-");
         }
-        // DO NOT reset el.value here!
       });
     });
     totalFormsInput.value = slotDivs.length;
@@ -71,10 +95,15 @@ document.addEventListener("DOMContentLoaded", function() {
     });
   }
 
-  // ============================
+  // ------------------------------
   // Overlapping Slot Validation
-  // ============================
+  // ------------------------------
   function checkOverlappingSlots() {
+    // Remove any existing client alert
+    var existingAlert = document.getElementById("client-alert");
+    if (existingAlert) {
+      existingAlert.remove();
+    }
     var slotDivs = document.querySelectorAll(".slot-form");
     var intervals = [];
     for (var i = 0; i < slotDivs.length; i++) {
@@ -87,13 +116,13 @@ document.addEventListener("DOMContentLoaded", function() {
         var start = new Date(startDate + "T" + startTime);
         var end = new Date(endDate + "T" + endTime);
         if (end <= start) {
-          alert("Each slot's start time must be before its end time.");
+          showClientError("Each slot's start time must be before its end time.");
           return false;
         }
         for (var j = 0; j < intervals.length; j++) {
           var iv = intervals[j];
           if (!(end <= iv.start || start >= iv.end)) {
-            alert("Availability slots cannot overlap.");
+            showClientError("Availability slots cannot overlap.");
             return false;
           }
         }
@@ -112,28 +141,8 @@ document.addEventListener("DOMContentLoaded", function() {
     });
   }
 
-  // ============================
-  // Warning Modal Logic
-  // ============================
-  var warningModal = document.getElementById("warning-modal");
-  var warningMessageElem = document.getElementById("warning-modal-message");
-  var warningClose = document.querySelector(".warning-modal-close");
-
-  function showWarning(message) {
-    if (warningMessageElem && warningModal) {
-      warningMessageElem.textContent = message;
-      warningModal.style.display = "block";
-    }
-  }
-
-  if (warningClose) {
-    warningClose.addEventListener("click", function() {
-      warningModal.style.display = "none";
-    });
-  }
-
-  // If a block warning message was passed from the server, show it.
-  if (typeof blockWarningMessage !== "undefined" && blockWarningMessage.trim().length > 0) {
-    showWarning(blockWarningMessage.trim());
+  // Initialize EV charger fields if utility is available
+  if (typeof ListingFormUtils !== 'undefined') {
+    ListingFormUtils.initializeEvChargerFields();
   }
 });

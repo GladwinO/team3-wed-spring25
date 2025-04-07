@@ -5,6 +5,8 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
+from django.utils import timezone
+import datetime as dt
 
 
 class Booking(models.Model):
@@ -66,6 +68,69 @@ class Booking(models.Model):
         # Send email for new bookings or status changes
         if is_new or (old_status and old_status != self.status):
             self.send_confirmation_email()
+
+    @property
+    def is_reviewed(self):
+        """Check if booking has been reviewed."""
+        return hasattr(self, "review")
+
+    @property
+    def is_within_24_hours(self):
+        """Check if any slot is within 24 hours from now."""
+        now = timezone.now()
+        time_threshold = now + dt.timedelta(hours=24)
+
+        for slot in self.slots.all():
+            slot_start = timezone.make_aware(
+                dt.datetime.combine(slot.start_date, slot.start_time),
+                timezone.get_current_timezone(),
+            )
+            if now <= slot_start <= time_threshold:
+                return True
+        return False
+
+    @property
+    def has_passed(self):
+        """Check if all booking slots have passed."""
+        if not self.slots.exists():
+            return False
+
+        now = timezone.now()
+        for slot in self.slots.all():
+            slot_end = timezone.make_aware(
+                dt.datetime.combine(slot.end_date, slot.end_time),
+                timezone.get_current_timezone(),
+            )
+            if slot_end > now:
+                return False
+        return True
+
+    @property
+    def can_be_reviewed(self):
+        """Determine if booking can be reviewed."""
+        return self.status == "APPROVED" and self.has_passed and not self.is_reviewed
+
+    @property
+    def is_ongoing(self):
+        """Check if any booking slot is currently active."""
+        now = timezone.now()
+
+        for slot in self.slots.all():
+            # Convert start and end dates/times to datetime with timezone
+            slot_start = timezone.make_aware(
+                dt.datetime.combine(slot.start_date, slot.start_time),
+                timezone.get_current_timezone(),
+            )
+            slot_end = timezone.make_aware(
+                dt.datetime.combine(slot.end_date, slot.end_time),
+                timezone.get_current_timezone(),
+            )
+
+            # If current time is between start and end, booking is ongoing
+            if slot_start <= now <= slot_end:
+                return True
+
+        return False
 
 
 class BookingSlot(models.Model):

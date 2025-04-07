@@ -54,6 +54,9 @@
 
     <!-- Filter Form -->
     <form method="GET" action="{% url 'view_listings' %}" class="filter-box">
+      <!-- Add this hidden field -->
+      <input type="hidden" name="view_mode" id="view_mode_input" value="{{ request.GET.view_mode|default:'list' }}">
+      
       <div class="row align-items-end g-3 mb-3">
         <!-- Max Price - keep at col-md-2 -->
         <div class="col-md-2">
@@ -219,6 +222,36 @@
               </div>
             </div>
           </div>
+        </div>
+      </div>
+      
+      <div class="row mb-3">
+        <div class="col-12 col-md-4">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="ev_charger" name="has_ev_charger" 
+                   {% if request.GET.has_ev_charger == 'on' %}checked{% endif %}>
+            <label class="form-check-label" for="ev_charger">
+              <i class="fas fa-charging-station text-primary me-1"></i> Has EV Charger
+            </label>
+          </div>
+        </div>
+        
+        <div class="col-12 col-md-4 ev-charger-container">
+          <select class="form-select" name="charger_level" id="charger_level">
+            <option value="">Any Charger Level</option>
+            {% for value, label in charger_level_choices %}
+              <option value="{{ value }}" {% if request.GET.charger_level == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        
+        <div class="col-12 col-md-4 ev-charger-container">
+          <select class="form-select" name="connector_type" id="connector_type">
+            <option value="">Any Connector Type</option>
+            {% for value, label in connector_type_choices %}
+              <option value="{{ value }}" {% if request.GET.connector_type == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
         </div>
       </div>
     </form>

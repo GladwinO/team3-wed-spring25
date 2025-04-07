@@ -460,4 +460,9 @@ document.addEventListener("DOMContentLoaded", function () {
     btn.addEventListener("click", handleDelete);
   });
 
+  // Initialize EV charger fields if utility is available
+  if (typeof ListingFormUtils !== 'undefined') {
+    ListingFormUtils.initializeEvChargerFields();
+  }
+
 }); // End DOMContentLoaded

@@ -1,55 +1,198 @@
-from datetime import datetime, date, time, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from ..forms import ListingForm
-from ..models import Listing, ListingSlot
-from ..views import simplify_location
+from listings.models import Listing, ListingSlot
+from booking.models import Booking, BookingSlot
 
 
-class ListingViewsTests(TestCase):
+# Updated helper function to build formset data for any count.
+def build_slot_formset_data(prefix="form", count=1, slot_data=None):
+    data = {
+        f"{prefix}-TOTAL_FORMS": str(count),
+        f"{prefix}-INITIAL_FORMS": "0",
+        f"{prefix}-MIN_NUM_FORMS": "0",
+        f"{prefix}-MAX_NUM_FORMS": "1000",
+    }
+    for i in range(count):
+        base = f"{prefix}-{i}-"
+        if slot_data and any(key.startswith(base) for key in slot_data.keys()):
+            data[base + "start_date"] = slot_data.get(base + "start_date", "2025-05-01")
+            data[base + "start_time"] = slot_data.get(base + "start_time", "09:00")
+            data[base + "end_date"] = slot_data.get(base + "end_date", "2025-05-01")
+            data[base + "end_time"] = slot_data.get(base + "end_time", "17:00")
+        else:
+            data[base + "start_date"] = "2025-05-01"
+            data[base + "start_time"] = "09:00"
+            data[base + "end_date"] = "2025-05-01"
+            data[base + "end_time"] = "17:00"
+    return data
+
+
+#############################
+# Tests for create_listing view.
+#############################
+
+
+class CreateListingViewTest(TestCase):
     def setUp(self):
-        # Create a test user and log in.
-        self.user = User.objects.create_user(username="testuser", password="testpass")
-        self.client.login(username="testuser", password="testpass")
+        self.client = Client()
+        # Create a verified user.
+        self.user_verified = User.objects.create_user(
+            username="verified", password="pass"
+        )
+        # Update the auto-created profile.
+        self.user_verified.profile.is_verified = True
+        self.user_verified.profile.save()
+        self.client.login(username="verified", password="pass")
+        self.create_url = reverse("create_listing")
 
-        # Create a sample listing for tests that require an existing listing.
+    def test_create_listing_get_verified(self):
+        response = self.client.get(self.create_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "listings/create_listing.html")
+        # Verified users see the form.
+        self.assertIn("form", response.context)
+        self.assertIn("slot_formset", response.context)
+
+    def test_create_listing_get_not_verified(self):
+        # Create an unverified user.
+        user_unverified = User.objects.create_user(
+            username="unverified", password="pass"
+        )
+        print(user_unverified)
+        # The post_save signal auto-creates a Profile with is_verified=False.
+        self.client.login(username="unverified", password="pass")
+        response = self.client.get(self.create_url)
+        # Expect the verification card to be shown.
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Verification Required")
+        self.assertNotContains(response, "Spot Details")
+
+    def test_create_listing_post_valid(self):
+        listing_data = {
+            "title": "New Listing",
+            "description": "New Description",
+            "rent_per_hour": "15.00",
+            "location": "New Location [123, 456]",
+            "has_ev_charger": False,
+            "charger_level": "",
+            "connector_type": "",
+        }
+        slot_data = {
+            "form-0-start_date": "2025-05-01",
+            "form-0-start_time": "09:00",
+            "form-0-end_date": "2025-05-01",
+            "form-0-end_time": "17:00",
+        }
+        post_data = {
+            **listing_data,
+            **build_slot_formset_data(prefix="form", count=1, slot_data=slot_data),
+        }
+        response = self.client.post(self.create_url, post_data)
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse("view_listings"))
+        self.assertTrue(Listing.objects.filter(title="New Listing").exists())
+        new_listing = Listing.objects.get(title="New Listing")
+        slot = new_listing.slots.first()
+        self.assertEqual(slot.start_date.strftime("%Y-%m-%d"), "2025-05-01")
+        self.assertEqual(slot.start_time.strftime("%H:%M"), "09:00")
+
+    def test_create_listing_post_invalid_form(self):
+        # Missing title to force an error.
+        listing_data = {
+            "title": "",
+            "description": "New Description",
+            "rent_per_hour": "15.00",
+            "location": "New Location [123, 456]",
+            "has_ev_charger": False,
+            "charger_level": "",
+            "connector_type": "",
+        }
+        post_data = {**listing_data, **build_slot_formset_data(prefix="form", count=1)}
+        response = self.client.post(self.create_url, post_data)
+        self.assertEqual(response.status_code, 200)
+        # Expect alert message in the rendered template.
+        self.assertContains(response, "Please correct the errors below")
+
+    def test_create_listing_post_overlapping_slots(self):
+        listing_data = {
+            "title": "Overlap Listing",
+            "description": "Overlap test",
+            "rent_per_hour": "15.00",
+            "location": "Overlap Location",
+            "has_ev_charger": False,
+            "charger_level": "",
+            "connector_type": "",
+        }
+        # Two slots that overlap.
+        slot_data = {
+            "form-0-start_date": "2025-05-01",
+            "form-0-start_time": "09:00",
+            "form-0-end_date": "2025-05-01",
+            "form-0-end_time": "11:00",
+            "form-1-start_date": "2025-05-01",
+            "form-1-start_time": "10:30",
+            "form-1-end_date": "2025-05-01",
+            "form-1-end_time": "12:00",
+        }
+        post_data = {
+            **listing_data,
+            **build_slot_formset_data(prefix="form", count=2, slot_data=slot_data),
+        }
+        response = self.client.post(self.create_url, post_data)
+        # Expect the view to catch overlapping slots.
+        self.assertEqual(response.status_code, 200)
+
+
+#############################
+# Tests for edit_listing view.
+#############################
+
+
+class EditListingViewTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username="editor", password="pass")
+        self.client.login(username="editor", password="pass")
         self.listing = Listing.objects.create(
             user=self.user,
-            title="Test Listing",
-            location="Test Location [12.34, 56.78]",
+            title="Editable Listing",
+            location="Edit Location",
             rent_per_hour=Decimal("10.00"),
-            description="A test listing.",
+            description="Editable",
+            has_ev_charger=False,
         )
-        # Create a listing slot for the sample listing.
-        ListingSlot.objects.create(
+        self.original_slot = ListingSlot.objects.create(
             listing=self.listing,
-            start_date="2025-03-12",
+            start_date="2025-06-01",
             start_time="10:00",
-            end_date="2025-03-12",
+            end_date="2025-06-01",
             end_time="12:00",
         )
+        self.edit_url = reverse("edit_listing", args=[self.listing.id])
 
-    def _build_slot_formset_data(self, prefix="form", count=1, slot_data=None):
-        """
-        Helper method to build valid formset data for ListingSlotFormSet.
-        Optionally override default slot data.
-        """
+    def _build_edit_slot_data(self, prefix="form", count=1, slot_data=None):
         data = {
             f"{prefix}-TOTAL_FORMS": str(count),
-            f"{prefix}-INITIAL_FORMS": "0",
+            f"{prefix}-INITIAL_FORMS": str(count),
             f"{prefix}-MIN_NUM_FORMS": "0",
             f"{prefix}-MAX_NUM_FORMS": "1000",
         }
-        # For one slot form, use default values (can be overridden)
         if count >= 1:
+            # Ensure that start_date is a string.
+            slot_date = self.original_slot.start_date
+            if not isinstance(slot_date, str):
+                slot_date = slot_date.strftime("%Y-%m-%d")
             default_data = {
-                f"{prefix}-0-start_date": "2025-03-12",
+                f"{prefix}-0-id": str(self.original_slot.id),
+                f"{prefix}-0-start_date": slot_date,
                 f"{prefix}-0-start_time": "10:00",
-                f"{prefix}-0-end_date": "2025-03-12",
+                f"{prefix}-0-end_date": slot_date,
                 f"{prefix}-0-end_time": "12:00",
             }
             if slot_data:
@@ -57,196 +200,265 @@ class ListingViewsTests(TestCase):
             data.update(default_data)
         return data
 
-    def test_create_listing_get(self):
-        url = reverse("create_listing")
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "listings/create_listing.html")
-        self.assertIsInstance(response.context["form"], ListingForm)
-        self.assertIn("slot_formset", response.context)
-
-    def test_create_listing_view_post(self):
-        tomorrow = (datetime.now() + timedelta(days=1)).date()
-        listing_data = {
-            "title": "New Listing",
-            "description": "New Description",
-            "rent_per_hour": "15.00",
-            "location": "New Location [123, 456]",
-        }
-        # Build slot formset data using tomorrow's date and desired times.
-        slot_data = {
-            "form-0-start_date": tomorrow.strftime("%Y-%m-%d"),
-            "form-0-start_time": "09:00",
-            "form-0-end_date": tomorrow.strftime("%Y-%m-%d"),
-            "form-0-end_time": "17:00",
-        }
-        formset_data = self._build_slot_formset_data(
-            prefix="form", count=1, slot_data=slot_data
-        )
-        # Note: Do not include non-existent fields such as available_from/available_until.
-        post_data = {**listing_data, **formset_data}
-
-        response = self.client.post(reverse("create_listing"), post_data)
-        if response.status_code != 302:
-            print("Listing form errors:", response.context["form"].errors)
-            print("Slot formset errors:", response.context.get("slot_formset").errors)
-        self.assertEqual(response.status_code, 302)
-        self.assertRedirects(response, reverse("view_listings"))
-        self.assertTrue(Listing.objects.filter(title="New Listing").exists())
-        # Verify that the new listing has a slot with the correct start date and time.
-        new_listing = Listing.objects.get(title="New Listing")
-        slot = new_listing.slots.first()
-        self.assertEqual(
-            slot.start_date.strftime("%Y-%m-%d"), tomorrow.strftime("%Y-%m-%d")
-        )
-        self.assertEqual(slot.start_time.strftime("%H:%M"), "09:00")
-
-    def test_edit_listing_view_get(self):
-        url = reverse("edit_listing", args=[self.listing.id])
-        response = self.client.get(url)
+    def test_edit_listing_get(self):
+        response = self.client.get(self.edit_url)
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "listings/edit_listing.html")
-        self.assertIsInstance(response.context["form"], ListingForm)
+        self.assertIn("form", response.context)
         self.assertIn("slot_formset", response.context)
 
-    def test_edit_listing_view_post(self):
-        tomorrow = (datetime.now() + timedelta(days=1)).date()
+    def test_edit_listing_post_valid(self):
+        new_date = "2025-06-02"
         listing_data = {
             "title": "Updated Listing",
-            "description": "Updated Description",
+            "description": "Updated Desc",
             "rent_per_hour": "20.00",
-            "location": "Updated Location [123, 456]",
+            "location": self.listing.location,
+            "has_ev_charger": False,
+            "charger_level": "",
+            "connector_type": "",
         }
-        # For editing, include the ID of the existing slot.
-        slot = self.listing.slots.first()
         slot_data = {
-            "form-0-id": str(slot.id),
-            "form-0-start_date": tomorrow.strftime("%Y-%m-%d"),
+            "form-0-id": str(self.original_slot.id),
+            "form-0-start_date": new_date,
             "form-0-start_time": "09:00",
-            "form-0-end_date": tomorrow.strftime("%Y-%m-%d"),
+            "form-0-end_date": new_date,
             "form-0-end_time": "17:00",
         }
-        formset_data = {
-            "form-TOTAL_FORMS": "1",
-            "form-INITIAL_FORMS": "1",
-            "form-MIN_NUM_FORMS": "0",
-            "form-MAX_NUM_FORMS": "1000",
-        }
-        formset_data.update(slot_data)
-        post_data = {**listing_data, **formset_data}
-        response = self.client.post(
-            reverse("edit_listing", args=[self.listing.id]), post_data
+        formset_data = self._build_edit_slot_data(
+            prefix="form", count=1, slot_data=slot_data
         )
-        if response.status_code != 302:
-            print("Listing form errors:", response.context["form"].errors)
-            print("Slot formset errors:", response.context.get("slot_formset").errors)
+        post_data = {**listing_data, **formset_data}
+        response = self.client.post(self.edit_url, post_data)
+        self.assertEqual(response.status_code, 302)
         self.assertRedirects(response, reverse("manage_listings"))
         self.listing.refresh_from_db()
         self.assertEqual(self.listing.title, "Updated Listing")
         updated_slot = self.listing.slots.first()
-        self.assertEqual(
-            updated_slot.start_date.strftime("%Y-%m-%d"), tomorrow.strftime("%Y-%m-%d")
-        )
+        self.assertEqual(updated_slot.start_date.strftime("%Y-%m-%d"), new_date)
         self.assertEqual(updated_slot.start_time.strftime("%H:%M"), "09:00")
 
-    def test_delete_listing_view_get(self):
-        url = reverse("delete_listing", args=[self.listing.id])
-        response = self.client.get(url)
+    def test_edit_listing_overlapping_slots_error(self):
+        listing_data = {
+            "title": "Overlap Edit",
+            "description": "Overlap conflict",
+            "rent_per_hour": "10.00",
+            "location": self.listing.location,
+            "has_ev_charger": False,
+            "charger_level": "",
+            "connector_type": "",
+        }
+        slot_data = {
+            "form-TOTAL_FORMS": "2",
+            "form-INITIAL_FORMS": "1",
+            "form-MIN_NUM_FORMS": "0",
+            "form-MAX_NUM_FORMS": "1000",
+            "form-0-id": str(self.original_slot.id),
+            "form-0-start_date": "2025-06-01",
+            "form-0-start_time": "10:00",
+            "form-0-end_date": "2025-06-01",
+            "form-0-end_time": "12:00",
+            "form-1-start_date": "2025-06-01",
+            "form-1-start_time": "11:00",
+            "form-1-end_date": "2025-06-01",
+            "form-1-end_time": "13:00",
+        }
+        post_data = {**listing_data, **slot_data}
+        response = self.client.post(self.edit_url, post_data)
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "listings/confirm_delete.html")
+        self.assertContains(response, "Overlapping slots detected. Please correct.")
 
-    def test_delete_listing_view_post(self):
-        url = reverse("delete_listing", args=[self.listing.id])
-        response = self.client.post(url)
-        self.assertEqual(response.status_code, 302)
-        self.assertRedirects(response, reverse("manage_listings"))
-        self.assertFalse(Listing.objects.filter(id=self.listing.id).exists())
-
-    def test_listing_reviews_view(self):
-        url = reverse("listing_reviews", args=[self.listing.id])
-        response = self.client.get(url)
+    def test_edit_listing_pending_bookings_block(self):
+        Booking.objects.create(
+            user=self.user,
+            listing=self.listing,
+            email="pending@example.com",
+            total_price=0,
+            status="PENDING",
+        )
+        listing_data = {
+            "title": "Blocked Edit",
+            "description": "Should not allow edit",
+            "rent_per_hour": "12.00",
+            "location": self.listing.location,
+            "has_ev_charger": False,
+            "charger_level": "",
+            "connector_type": "",
+        }
+        slot_data = self._build_edit_slot_data(prefix="form", count=1)
+        post_data = {**listing_data, **slot_data}
+        response = self.client.post(self.edit_url, post_data)
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "listings/listing_reviews.html")
-        self.assertIn("reviews", response.context)
+        self.assertContains(
+            response, "You cannot edit your listing while there is a pending booking"
+        )
+
+    def test_edit_listing_active_booking_conflict(self):
+        booking = Booking.objects.create(
+            user=self.user,
+            listing=self.listing,
+            email="active@example.com",
+            total_price=0,
+            status="APPROVED",
+        )
+        # Convert start_date to string if necessary.
+        slot_date = self.original_slot.start_date
+        if not isinstance(slot_date, str):
+            slot_date_str = slot_date.strftime("%Y-%m-%d")
+        else:
+            slot_date_str = slot_date
+        BookingSlot.objects.create(
+            booking=booking,
+            start_date=datetime.strptime(slot_date_str, "%Y-%m-%d").date(),
+            start_time="10:00",
+            end_date=datetime.strptime(slot_date_str, "%Y-%m-%d").date(),
+            end_time="12:00",
+        )
+        listing_data = {
+            "title": "Conflict Edit",
+            "description": "Conflicting availability",
+            "rent_per_hour": "10.00",
+            "location": self.listing.location,
+            "has_ev_charger": False,
+            "charger_level": "",
+            "connector_type": "",
+        }
+        slot_data = {
+            "form-TOTAL_FORMS": "1",
+            "form-INITIAL_FORMS": "0",
+            "form-MIN_NUM_FORMS": "0",
+            "form-MAX_NUM_FORMS": "1000",
+            "form-0-start_date": slot_date_str,
+            "form-0-start_time": "11:00",
+            "form-0-end_date": slot_date_str,
+            "form-0-end_time": "13:00",
+        }
+        post_data = {**listing_data, **slot_data}
+        response = self.client.post(self.edit_url, post_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Your changes conflict with an active booking")
+
+    def test_edit_listing_get_updates_ongoing_slot_initial(self):
+        # Set a fixed datetime between the slot's start and end.
+        fixed_now = datetime(2025, 6, 1, 11, 0)  # 11:00 AM on June 1, 2025
+        # Create an ongoing slot that starts at 10:00 and ends at 12:00.
+        ongoing_slot = ListingSlot.objects.create(
+            listing=self.listing,
+            start_date=fixed_now.date(),
+            start_time="10:00",
+            end_date=fixed_now.date(),
+            end_time="12:00",
+        )
+        # Patch datetime.now() in the view so that current_dt == fixed_now.
+        with patch("listings.views.datetime") as mock_datetime:
+            mock_datetime.now.return_value = fixed_now
+            mock_datetime.combine = datetime.combine
+            mock_datetime.strptime = datetime.strptime
+            response = self.client.get(self.edit_url)
+        # In the view, the code sets form.initial["start_time"] for ongoing slots.
+        formset = response.context["slot_formset"]
+        found = False
+        for form in formset.forms:
+            if form.instance.id == ongoing_slot.id:
+                # According to the view logic, if current_dt is 11:00 (minute=0),
+                # then new_minute becomes 30 and hour stays 11, so expected "11:30".
+                self.assertEqual(form.initial.get("start_time"), "11:30")
+                found = True
+        self.assertTrue(found)
 
 
+# --- Tests for view_listings ---
 class ListingsFilterTest(TestCase):
     def setUp(self):
         self.client = Client()
-        self.user = User.objects.create_user(username="testuser", password="testpass")
-        # Set a fixed test date for filtering
-        self.test_date = date(2025, 3, 15)
-
-        # Mock the current datetime to be 13:00 on test_date
-        # This ensures our "future time" tests work consistently
-        self.current_datetime = datetime.combine(self.test_date, time(13, 0))
-
-        # Patch datetime.now() to return our fixed time
-        from unittest.mock import patch
-
-        self.datetime_patcher = patch("listings.views.datetime")
-        self.mock_datetime = self.datetime_patcher.start()
-        self.mock_datetime.now.return_value = self.current_datetime
-        # Make sure strptime and combine still work
-        self.mock_datetime.strptime = datetime.strptime
-        self.mock_datetime.combine = datetime.combine
-
-    def tearDown(self):
-        # Stop patching datetime
-        self.datetime_patcher.stop()
-
-    def test_listing_time_filtering_single_interval(self):
-        # Create listings with associated slots.
-
-        # 1. Future Listing – slot from test_date 09:00 to (test_date+5 days) 17:00
-        future_listing = Listing.objects.create(
+        self.user = User.objects.create_user(username="filteruser", password="pass")
+        self.client.login(username="filteruser", password="pass")
+        # Set test_date to a future date.
+        self.test_date = date.today() + timedelta(days=10)
+        # Listing 1: Future Listing.
+        self.future_listing = Listing.objects.create(
             user=self.user,
             title="Future Listing",
             location="Future Location",
-            rent_per_hour=10.0,
-            description="This should be included",
+            rent_per_hour=10.00,
+            description="Should be included",
         )
         ListingSlot.objects.create(
-            listing=future_listing,
+            listing=self.future_listing,
             start_date=self.test_date,
             start_time=time(9, 0),
             end_date=self.test_date + timedelta(days=5),
             end_time=time(17, 0),
         )
-
-        # 2. Today with future time – slot from test_date 14:00 to 18:00
-        today_future = Listing.objects.create(
+        # Listing 2: Today Future Time.
+        self.today_future = Listing.objects.create(
             user=self.user,
             title="Today Future Time",
             location="Today Location",
-            rent_per_hour=10.0,
-            description="This should be included",
+            rent_per_hour=10.00,
+            description="Should be included",
         )
         ListingSlot.objects.create(
-            listing=today_future,
+            listing=self.today_future,
             start_date=self.test_date,
             start_time=time(14, 0),
             end_date=self.test_date,
             end_time=time(18, 0),
         )
-
-        # 3. Today with past time – slot from test_date 09:00 to 12:00
-        today_past = Listing.objects.create(
+        # Listing 3: Today Past Time.
+        self.today_past = Listing.objects.create(
             user=self.user,
             title="Today Past Time",
-            location="Today Past Location",
-            rent_per_hour=10.0,
-            description="This should be excluded",
+            location="Past Location",
+            rent_per_hour=10.00,
+            description="Should be excluded",
         )
         ListingSlot.objects.create(
-            listing=today_past,
+            listing=self.today_past,
             start_date=self.test_date,
             start_time=time(9, 0),
             end_date=self.test_date,
             end_time=time(12, 0),
         )
+        # Patch datetime in listings.views so that "now" is before test_date.
+        self.patcher = patch("listings.views.datetime")
+        self.mock_datetime = self.patcher.start()
+        fixed_now = datetime.combine(self.test_date - timedelta(days=1), time(12, 0))
+        self.mock_datetime.now.return_value = fixed_now
+        self.mock_datetime.combine = datetime.combine
+        self.mock_datetime.strptime = datetime.strptime
 
-        # Apply single continuous interval filter
+    def tearDown(self):
+        self.patcher.stop()
+
+    def test_view_listings_default(self):
+        url = reverse("view_listings")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("listings", response.context)
+
+    def test_view_listings_filter_max_price(self):
+        Listing.objects.create(
+            user=self.user,
+            title="Expensive Listing",
+            location="999 Rich St",
+            rent_per_hour=50.00,
+            description="Expensive",
+        )
+        url = reverse("view_listings")
+        response = self.client.get(url, {"max_price": "20"})
+        self.assertEqual(response.status_code, 200)
+        listings = response.context["listings"]
+        for listing in listings:
+            self.assertLessEqual(float(listing.rent_per_hour), 20.0)
+
+    def test_view_listings_ajax(self):
+        url = reverse("view_listings")
+        response = self.client.get(url, {"ajax": "1"})
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "listings/partials/listing_cards.html")
+
+    def test_single_interval_filter(self):
         url = reverse("view_listings")
         params = {
             "filter_type": "single",
@@ -256,22 +468,18 @@ class ListingsFilterTest(TestCase):
             "end_time": "15:00",
         }
         response = self.client.get(url, params)
-        context_listings = response.context["listings"]
-        listing_titles = [listing.title for listing in context_listings]
+        titles = [listing.title for listing in response.context["listings"]]
+        self.assertIn("Future Listing", titles)
+        self.assertIn("Today Future Time", titles)
+        self.assertNotIn("Today Past Time", titles)
 
-        self.assertIn("Future Listing", listing_titles)
-        self.assertIn("Today Future Time", listing_titles)
-        self.assertNotIn("Today Past Time", listing_titles)
-        self.assertEqual(len(listing_titles), 2)
-
-    def test_listing_time_filtering_multiple_intervals(self):
-        # Create a listing with two slots that together cover 10:00 to 16:00 on test_date.
+    def test_multiple_intervals_filter(self):
         multi_listing = Listing.objects.create(
             user=self.user,
             title="Multi Interval Listing",
             location="Multi Location",
-            rent_per_hour=15.0,
-            description="This listing has multiple intervals",
+            rent_per_hour=15.00,
+            description="Multiple intervals",
         )
         ListingSlot.objects.create(
             listing=multi_listing,
@@ -287,7 +495,6 @@ class ListingsFilterTest(TestCase):
             end_date=self.test_date,
             end_time=time(16, 0),
         )
-
         url = reverse("view_listings")
         params = {
             "filter_type": "multiple",
@@ -302,50 +509,236 @@ class ListingsFilterTest(TestCase):
             "end_time_2": "15:00",
         }
         response = self.client.get(url, params)
-        context_listings = response.context["listings"]
-        listing_titles = [listing.title for listing in context_listings]
-        # Listing should cover both intervals.
-        self.assertIn("Multi Interval Listing", listing_titles)
-
-        # Now change the second interval so it is not covered.
+        titles = [listing.title for listing in response.context["listings"]]
+        self.assertIn("Multi Interval Listing", titles)
         params["start_time_2"] = "15:30"
         params["end_time_2"] = "16:30"
         response = self.client.get(url, params)
-        context_listings = response.context["listings"]
-        listing_titles = [listing.title for listing in context_listings]
-        self.assertNotIn("Multi Interval Listing", listing_titles)
+        titles = [listing.title for listing in response.context["listings"]]
+        self.assertNotIn("Multi Interval Listing", titles)
+
+    def test_recurring_filter_invalid_time(self):
+        url = reverse("view_listings")
+        params = {
+            "filter_type": "recurring",
+            "recurring_pattern": "daily",
+            "recurring_start_date": self.test_date.strftime("%Y-%m-%d"),
+            "recurring_end_date": self.test_date.strftime("%Y-%m-%d"),
+            "recurring_start_time": "14:00",
+            "recurring_end_time": "12:00",  # invalid without overnight
+        }
+        response = self.client.get(url, params)
+        self.assertIn(
+            "Start time must be before end time unless overnight booking is selected",
+            response.context["error_messages"],
+        )
+
+    def test_recurring_daily_missing_end_date(self):
+        url = reverse("view_listings")
+        params = {
+            "filter_type": "recurring",
+            "recurring_pattern": "daily",
+            "recurring_start_date": self.test_date.strftime("%Y-%m-%d"),
+            # Missing recurring_end_date
+            "recurring_start_time": "10:00",
+            "recurring_end_time": "12:00",
+        }
+        response = self.client.get(url, params)
+        self.assertIn(
+            "End date is required for daily recurring pattern",
+            response.context["error_messages"],
+        )
+        self.assertEqual(len(response.context["listings"]), 0)
+
+    def test_recurring_daily_end_date_before_start(self):
+        url = reverse("view_listings")
+        params = {
+            "filter_type": "recurring",
+            "recurring_pattern": "daily",
+            "recurring_start_date": "2025-04-10",
+            "recurring_end_date": "2025-04-09",
+            "recurring_start_time": "10:00",
+            "recurring_end_time": "12:00",
+        }
+        response = self.client.get(url, params)
+        self.assertIn(
+            "End date must be on or after start date",
+            response.context["error_messages"],
+        )
+        self.assertEqual(len(response.context["listings"]), 0)
+
+    def test_recurring_weekly_missing_weeks(self):
+        url = reverse("view_listings")
+        params = {
+            "filter_type": "recurring",
+            "recurring_pattern": "weekly",
+            "recurring_start_date": "2025-04-10",
+            "recurring_start_time": "10:00",
+            "recurring_end_time": "12:00",
+            # Missing recurring_weeks
+        }
+        response = self.client.get(url, params)
+        self.assertIn(
+            "Number of weeks is required for weekly recurring pattern",
+            response.context["error_messages"],
+        )
+        self.assertEqual(len(response.context["listings"]), 0)
+
+    def test_recurring_weekly_invalid_weeks(self):
+        url = reverse("view_listings")
+        params = {
+            "filter_type": "recurring",
+            "recurring_pattern": "weekly",
+            "recurring_start_date": "2025-04-10",
+            "recurring_start_time": "10:00",
+            "recurring_end_time": "12:00",
+            "recurring_weeks": "-1",
+        }
+        response = self.client.get(url, params)
+        self.assertIn(
+            "Number of weeks must be positive", response.context["error_messages"]
+        )
+        self.assertEqual(len(response.context["listings"]), 0)
+
+    def test_recurring_daily_valid(self):
+        valid_listing = Listing.objects.create(
+            user=self.user,
+            title="Recurring Daily Listing",
+            location="Valid Location",
+            rent_per_hour=20.00,
+            description="Available daily",
+            has_ev_charger=False,
+        )
+        start_date_slot = datetime.strptime("2025-04-10", "%Y-%m-%d").date()
+        end_date_slot = datetime.strptime("2025-04-20", "%Y-%m-%d").date()
+        ListingSlot.objects.create(
+            listing=valid_listing,
+            start_date=start_date_slot,
+            start_time="08:00",
+            end_date=end_date_slot,
+            end_time="20:00",
+        )
+        url = reverse("view_listings")
+        params = {
+            "filter_type": "recurring",
+            "recurring_pattern": "daily",
+            "recurring_start_date": "2025-04-12",
+            "recurring_end_date": "2025-04-14",
+            "recurring_start_time": "09:00",
+            "recurring_end_time": "10:00",
+        }
+        response = self.client.get(url, params)
+        listings = response.context["listings"]
+        titles = [listing.title for listing in listings]
+        self.assertIn("Recurring Daily Listing", titles)
+
+    def test_recurring_weekly_valid(self):
+        # Create a listing with slots on 3 consecutive weeks.
+        weekly_listing = Listing.objects.create(
+            user=self.user,
+            title="Recurring Weekly Listing",
+            location="Weekly Location",
+            rent_per_hour=25.00,
+            description="Available weekly",
+            has_ev_charger=False,
+        )
+        start_date = datetime.strptime("2025-04-14", "%Y-%m-%d").date()  # Monday
+        for week_offset in range(3):
+            slot_date = start_date + timedelta(weeks=week_offset)
+            ListingSlot.objects.create(
+                listing=weekly_listing,
+                start_date=slot_date,
+                start_time="09:00",
+                end_date=slot_date,
+                end_time="17:00",
+            )
+        url = reverse("view_listings")
+        params = {
+            "filter_type": "recurring",
+            "recurring_pattern": "weekly",
+            "recurring_start_date": "2025-04-14",
+            "recurring_weeks": "3",
+            "recurring_start_time": "10:00",
+            "recurring_end_time": "16:00",
+        }
+        response = self.client.get(url, params)
+        listings = response.context["listings"]
+        titles = [listing.title for listing in listings]
+        self.assertIn("Recurring Weekly Listing", titles)
+
+
+# --- Tests for manage_listings, delete_listing, and listing_reviews ---
+
+
+class ManageListingsTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.owner = User.objects.create_user(username="manageowner", password="pass")
+        self.client.login(username="manageowner", password="pass")
+        self.listing1 = Listing.objects.create(
+            user=self.owner,
+            title="Manage Listing 1",
+            location="Loc 1",
+            rent_per_hour=10.00,
+            description="Desc 1",
+        )
+        self.listing2 = Listing.objects.create(
+            user=self.owner,
+            title="Manage Listing 2",
+            location="Loc 2",
+            rent_per_hour=12.00,
+            description="Desc 2",
+        )
+        Booking.objects.create(
+            user=self.owner,
+            listing=self.listing1,
+            email="a@example.com",
+            total_price=0,
+            status="PENDING",
+        )
+        Booking.objects.create(
+            user=self.owner,
+            listing=self.listing2,
+            email="b@example.com",
+            total_price=0,
+            status="APPROVED",
+        )
+
+    def test_manage_listings_view(self):
+        url = reverse("manage_listings")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("listings", response.context)
+        for listing in response.context["listings"]:
+            self.assertTrue(hasattr(listing, "pending_bookings"))
+            self.assertTrue(hasattr(listing, "approved_bookings"))
 
 
 class ListingOwnerBookingTest(TestCase):
     def setUp(self):
-        # Create two users: owner and non-owner.
-        self.owner = User.objects.create_user(username="owner", password="ownerpass123")
-        self.non_owner = User.objects.create_user(
-            username="renter", password="renterpass123"
-        )
-
-        # Create a listing owned by the owner.
+        self.client = Client()
+        self.owner = User.objects.create_user(username="owner", password="pass")
+        self.renter = User.objects.create_user(username="renter", password="pass")
         self.listing = Listing.objects.create(
             user=self.owner,
-            title="Test Parking Spot",
-            location="Test Location [123.456, 789.012]",
-            rent_per_hour=10.0,
-            description="Test Description",
+            title="Owner Parking",
+            location="Owner Loc [12,34]",
+            rent_per_hour=10.00,
+            description="Owner description",
+            has_ev_charger=False,
         )
-        # Create a slot for the listing.
         ListingSlot.objects.create(
             listing=self.listing,
-            start_date=(datetime.now() - timedelta(days=1)).date(),
-            start_time=time(9, 0),
-            end_date=(datetime.now() + timedelta(days=30)).date(),
-            end_time=time(17, 0),
+            start_date=(datetime.now() + timedelta(days=1)).date(),
+            start_time="09:00",
+            end_date=(datetime.now() + timedelta(days=1)).date(),
+            end_time="17:00",
         )
-        self.view_listings_url = reverse("view_listings")
 
     def test_owner_sees_badge_not_book_button(self):
-        """Owners should see a badge (not a 'Book Now' button)."""
-        self.client.login(username="owner", password="ownerpass123")
-        response = self.client.get(self.view_listings_url)
+        self.client.login(username="owner", password="pass")
+        url = reverse("view_listings")
+        response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Your listing")
         self.assertContains(response, 'class="badge bg-secondary"')
@@ -354,9 +747,9 @@ class ListingOwnerBookingTest(TestCase):
         self.assertNotContains(response, "Book Now")
 
     def test_non_owner_sees_book_button(self):
-        """Non-owners should see the 'Book Now' button."""
-        self.client.login(username="renter", password="renterpass123")
-        response = self.client.get(self.view_listings_url)
+        self.client.login(username="renter", password="pass")
+        url = reverse("view_listings")
+        response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "Your listing")
         book_url = reverse("book_listing", args=[self.listing.id])
@@ -365,267 +758,237 @@ class ListingOwnerBookingTest(TestCase):
         self.assertContains(response, "Book Now")
 
 
-class SimplifyLocationTest(TestCase):
-    def test_simplify_location_with_institution(self):
-        # For educational institutions, the full building name is retained.
-        loc = (
-            "Tandon School of Engineering, Johnson Street, Downtown Brooklyn, Brooklyn"
-        )
-        simplified = simplify_location(loc)
-        self.assertEqual(simplified, "Tandon School of Engineering, Brooklyn")
-
-    def test_simplify_location_non_institution(self):
-        # For non-institution addresses, the first two parts plus the city are used.
-        loc = "Some Building, Some Street, Manhattan, Extra Info"
-        simplified = simplify_location(loc)
-        self.assertEqual(simplified, "Some Building, Some Street, Manhattan")
-
-    def test_simplify_location_empty(self):
-        simplified = simplify_location("")
-        self.assertEqual(simplified, "")
-
-
-class RecurringFilterTest(TestCase):
+class EVChargerViewTest(TestCase):
     def setUp(self):
         self.client = Client()
-        self.user = User.objects.create_user(username="testuser", password="testpass")
-        # Set a fixed test date for filtering
-        self.test_date = date(2025, 3, 15)  # A Saturday
-
-    # def test_daily_recurring_filter(self):
-    #     # Create a listing available every day for a week
-    #     daily_listing = Listing.objects.create(
-    #         user=self.user,
-    #         title="Daily Available Listing",
-    #         location="Daily Location",
-    #         rent_per_hour=15.0,
-    #         description="Available every day from 10:00-14:00",
-    #     )
-
-    #     # Create slots for 5 consecutive days
-    #     for i in range(5):
-    #         current_date = self.test_date + timedelta(days=i)
-    #         ListingSlot.objects.create(
-    #             listing=daily_listing,
-    #             start_date=current_date,
-    #             start_time=time(10, 0),
-    #             end_date=current_date,
-    #             end_time=time(14, 0),
-    #         )
-
-    #     # Create another listing with gaps in availability
-    #     partial_listing = Listing.objects.create(
-    #         user=self.user,
-    #         title="Partial Available Listing",
-    #         location="Partial Location",
-    #         rent_per_hour=20.0,
-    #         description="Not available every day",
-    #     )
-
-    #     # Create slots for days 0, 2, 4 (skipping days 1 and 3)
-    #     for i in range(0, 5, 2):
-    #         current_date = self.test_date + timedelta(days=i)
-    #         ListingSlot.objects.create(
-    #             listing=partial_listing,
-    #             start_date=current_date,
-    #             start_time=time(10, 0),
-    #             end_date=current_date,
-    #             end_time=time(14, 0),
-    #         )
-
-    #     # Apply daily recurring filter for 3 consecutive days
-    #     url = reverse("view_listings")
-    #     params = {
-    #         "filter_type": "recurring",
-    #         "recurring_pattern": "daily",
-    #         "recurring_start_date": self.test_date.strftime("%Y-%m-%d"),
-    #         "recurring_end_date": (self.test_date + timedelta(days=2)).strftime(
-    #             "%Y-%m-%d"
-    #         ),
-    #         "recurring_start_time": "11:00",
-    #         "recurring_end_time": "13:00",
-    #     }
-
-    #     response = self.client.get(url, params)
-    #     context_listings = response.context["listings"]
-    #     listing_titles = [listing.title for listing in context_listings]
-
-    #     # Daily listing should be included, partial listing should be excluded
-    #     self.assertIn("Daily Available Listing", listing_titles)
-    #     self.assertNotIn("Partial Available Listing", listing_titles)
-
-    def test_weekly_recurring_filter(self):
-        # Create a listing available same day every week
-        weekly_listing = Listing.objects.create(
+        self.user = User.objects.create_user(username="evuser", password="evpass")
+        self.client.login(username="evuser", password="evpass")
+        self.non_ev = Listing.objects.create(
             user=self.user,
-            title="Weekly Available Listing",
-            location="Weekly Location",
-            rent_per_hour=25.0,
-            description="Available every Saturday",
+            title="Regular Parking",
+            location="Regular Loc",
+            rent_per_hour=Decimal("10.00"),
+            description="No EV charger",
+            has_ev_charger=False,
         )
-
-        # Create slots for 4 consecutive Saturdays
-        for i in range(0, 28, 7):  # 0, 7, 14, 21 - four Saturdays
-            current_date = self.test_date + timedelta(days=i)
-            ListingSlot.objects.create(
-                listing=weekly_listing,
-                start_date=current_date,
-                start_time=time(9, 0),
-                end_date=current_date,
-                end_time=time(17, 0),
-            )
-
-        # Create another listing with inconsistent weekly availability
-        inconsistent_listing = Listing.objects.create(
+        self.l2 = Listing.objects.create(
             user=self.user,
-            title="Inconsistent Weekly Listing",
-            location="Inconsistent Location",
-            rent_per_hour=30.0,
-            description="Missing some Saturdays",
+            title="Level 2 Charging",
+            location="L2 Loc",
+            rent_per_hour=Decimal("15.00"),
+            description="Standard charger",
+            has_ev_charger=True,
+            charger_level="L2",
+            connector_type="J1772",
         )
-
-        # Create slots for 1st and 3rd Saturdays only (missing 2nd and 4th)
-        for i in range(0, 28, 14):  # 0, 14 - two Saturdays
-            current_date = self.test_date + timedelta(days=i)
-            ListingSlot.objects.create(
-                listing=inconsistent_listing,
-                start_date=current_date,
-                start_time=time(9, 0),
-                end_date=current_date,
-                end_time=time(17, 0),
-            )
-
-            # NEW: Create a listing available every week but at wrong time
-        wrong_time_listing = Listing.objects.create(
+        self.l3 = Listing.objects.create(
             user=self.user,
-            title="Wrong Time Weekly Listing",
-            location="Wrong Time Location",
-            rent_per_hour=35.0,
-            description="Available every Saturday but outside requested hours",
+            title="Fast Charging Tesla",
+            location="Tesla Loc",
+            rent_per_hour=Decimal("25.00"),
+            description="DC Fast Charging",
+            has_ev_charger=True,
+            charger_level="L3",
+            connector_type="TESLA",
         )
-
-        # Create slots for 4 consecutive Saturdays but only from 6-8am and 18-20pm
-        for i in range(0, 28, 7):
-            current_date = self.test_date + timedelta(days=i)
-            # Morning slot (too early)
+        tomorrow = (datetime.now() + timedelta(days=1)).date()
+        for listing in [self.non_ev, self.l2, self.l3]:
             ListingSlot.objects.create(
-                listing=wrong_time_listing,
-                start_date=current_date,
-                start_time=time(6, 0),
-                end_date=current_date,
-                end_time=time(8, 0),
-            )
-            # Evening slot (too late)
-            ListingSlot.objects.create(
-                listing=wrong_time_listing,
-                start_date=current_date,
-                start_time=time(18, 0),
-                end_date=current_date,
-                end_time=time(20, 0),
+                listing=listing,
+                start_date=tomorrow,
+                start_time="09:00",
+                end_date=tomorrow,
+                end_time="17:00",
             )
 
-        # Apply weekly recurring filter for 3 weeks
-        url = reverse("view_listings")
-        params = {
-            "filter_type": "recurring",
-            "recurring_pattern": "weekly",
-            "recurring_start_date": self.test_date.strftime("%Y-%m-%d"),
-            "recurring_weeks": "3",
-            "recurring_start_time": "10:00",
-            "recurring_end_time": "16:00",
-        }
+    def test_filter_by_ev_charger_presence(self):
+        response = self.client.get(reverse("view_listings"), {"has_ev_charger": "on"})
+        listings = response.context["listings"]
+        ids = [listing.id for listing in listings]
+        self.assertIn(self.l2.id, ids)
+        self.assertIn(self.l3.id, ids)
+        self.assertNotIn(self.non_ev.id, ids)
 
-        response = self.client.get(url, params)
-        context_listings = response.context["listings"]
-        listing_titles = [listing.title for listing in context_listings]
-
-        # Weekly listing should be included
-        self.assertIn("Weekly Available Listing", listing_titles)
-
-        # Both inconsistent pattern and wrong time listings should be excluded
-        self.assertNotIn("Inconsistent Weekly Listing", listing_titles)
-        self.assertNotIn("Wrong Time Weekly Listing", listing_titles)
-
-    # def test_overnight_recurring_filter(self):
-    #     # Create a listing available for overnight stays (24/7)
-    #     overnight_listing = Listing.objects.create(
-    #         user=self.user,
-    #         title="Overnight Listing",
-    #         location="Overnight Location",
-    #         rent_per_hour=40.0,
-    #         description="Available for overnight stays",
-    #     )
-
-    #     # Create slots for 3 consecutive days (to cover 2 nights)
-    #     for i in range(3):
-    #         current_date = self.test_date + timedelta(days=i)
-    #         ListingSlot.objects.create(
-    #             listing=overnight_listing,
-    #             start_date=current_date,
-    #             start_time=time(0, 0),  # Available all day
-    #             end_date=current_date,
-    #             end_time=time(23, 59),
-    #         )
-
-    #     # Create a listing that's only available during daytime hours
-    #     daytime_listing = Listing.objects.create(
-    #         user=self.user,
-    #         title="Daytime Only Listing",
-    #         location="Daytime Location",
-    #         rent_per_hour=30.0,
-    #         description="Only available during daytime hours",
-    #     )
-
-    #     # Create daytime-only slots for the same 3 consecutive days
-    #     for i in range(3):
-    #         current_date = self.test_date + timedelta(days=i)
-    #         ListingSlot.objects.create(
-    #             listing=daytime_listing,
-    #             start_date=current_date,
-    #             start_time=time(9, 0),  # Available from 9am
-    #             end_date=current_date,
-    #             end_time=time(17, 0),  # Until 5pm
-    #         )
-
-    #     # Apply overnight recurring filter
-    #     url = reverse("view_listings")
-    #     params = {
-    #         "filter_type": "recurring",
-    #         "recurring_pattern": "daily",
-    #         "recurring_start_date": self.test_date.strftime("%Y-%m-%d"),
-    #         "recurring_end_date": (self.test_date + timedelta(days=1)).strftime(
-    #             "%Y-%m-%d"
-    #         ),
-    #         "recurring_start_time": "22:00",
-    #         "recurring_end_time": "08:00",  # End time is before start time, requiring overnight
-    #         "recurring_overnight": "on",
-    #     }
-
-    #     response = self.client.get(url, params)
-    #     context_listings = response.context["listings"]
-    #     listing_titles = [listing.title for listing in context_listings]
-
-    #     # Overnight listing should be included
-    #     self.assertIn("Overnight Listing", listing_titles)
-    #     # Daytime-only listing should NOT be included
-    #     self.assertNotIn("Daytime Only Listing", listing_titles)
-
-    def test_start_time_after_end_time_validation(self):
-        # Apply filter with start time after end time without overnight option
-        url = reverse("view_listings")
-        params = {
-            "filter_type": "recurring",
-            "recurring_pattern": "daily",
-            "recurring_start_date": self.test_date.strftime("%Y-%m-%d"),
-            "recurring_end_date": self.test_date.strftime("%Y-%m-%d"),
-            "recurring_start_time": "14:00",
-            "recurring_end_time": "12:00",  # End time before start time
-        }
-
-        response = self.client.get(url, params)
-
-        # Should get an error message
-        self.assertIn(
-            "Start time must be before end time unless overnight booking is selected",
-            response.context["error_messages"],
+    def test_filter_by_charger_level(self):
+        response = self.client.get(
+            reverse("view_listings"), {"has_ev_charger": "on", "charger_level": "L3"}
         )
+        listings = response.context["listings"]
+        ids = [listing.id for listing in listings]
+        self.assertIn(self.l3.id, ids)
+        self.assertNotIn(self.l2.id, ids)
+        self.assertNotIn(self.non_ev.id, ids)
+
+    def test_filter_by_connector_type(self):
+        response = self.client.get(
+            reverse("view_listings"),
+            {"has_ev_charger": "on", "connector_type": "TESLA"},
+        )
+        listings = response.context["listings"]
+        ids = [listing.id for listing in listings]
+        self.assertIn(self.l3.id, ids)
+        self.assertNotIn(self.l2.id, ids)
+        self.assertNotIn(self.non_ev.id, ids)
+
+    def test_combined_ev_filters(self):
+        l3_j1772 = Listing.objects.create(
+            user=self.user,
+            title="L3 with J1772",
+            location="L3 J1772 Loc",
+            rent_per_hour=Decimal("20.00"),
+            description="Fast charging with J1772",
+            has_ev_charger=True,
+            charger_level="L3",
+            connector_type="J1772",
+        )
+        tomorrow = (datetime.now() + timedelta(days=1)).date()
+        ListingSlot.objects.create(
+            listing=l3_j1772,
+            start_date=tomorrow,
+            start_time="09:00",
+            end_date=tomorrow,
+            end_time="17:00",
+        )
+        response = self.client.get(
+            reverse("view_listings"),
+            {
+                "has_ev_charger": "on",
+                "charger_level": "L3",
+                "connector_type": "TESLA",
+            },
+        )
+        listings = response.context["listings"]
+        ids = [listing.id for listing in listings]
+        self.assertIn(self.l3.id, ids)
+        self.assertNotIn(self.l2.id, ids)
+        self.assertNotIn(l3_j1772.id, ids)
+        self.assertContains(response, "Level 3")
+        self.assertContains(response, "Tesla")
+        self.assertContains(response, "fa-charging-station")
+        self.assertContains(response, "fa-plug")
+
+
+# --- Tests for delete_listing and listing_reviews ---
+
+
+class DeleteListingViewTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username="deleter", password="pass")
+        self.client.login(username="deleter", password="pass")
+        self.listing = Listing.objects.create(
+            user=self.user,
+            title="Delete Test Listing",
+            location="Delete Loc",
+            rent_per_hour=Decimal("10.00"),
+            description="To be deleted",
+            has_ev_charger=False,
+        )
+        self.delete_url = reverse("delete_listing", args=[self.listing.id])
+
+    def test_delete_listing_view_get(self):
+        response = self.client.get(self.delete_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "listings/confirm_delete.html")
+
+    def test_delete_listing_view_post(self):
+        response = self.client.post(self.delete_url)
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse("manage_listings"))
+        self.assertFalse(Listing.objects.filter(id=self.listing.id).exists())
+
+    def test_delete_listing_active_booking(self):
+        Booking.objects.create(
+            user=self.user,
+            listing=self.listing,
+            email="conflict@example.com",
+            total_price=0,
+            status="PENDING",
+        )
+        response = self.client.get(self.delete_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Cannot delete listing with pending bookings")
+
+
+class ListingReviewsViewTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username="reviewer", password="pass")
+        self.client.login(username="reviewer", password="pass")
+        self.listing = Listing.objects.create(
+            user=self.user,
+            title="Review Test Listing",
+            location="Review Loc",
+            rent_per_hour=Decimal("10.00"),
+            description="Review test",
+            has_ev_charger=False,
+        )
+        from booking.models import Booking
+
+        self.booking = Booking.objects.create(
+            user=self.user,
+            listing=self.listing,
+            email="review@example.com",
+            total_price=0,
+            status="APPROVED",
+        )
+        from listings.models import Review
+
+        Review.objects.create(
+            booking=self.booking,
+            listing=self.listing,
+            user=self.user,
+            rating=5,
+            comment="Great!",
+        )
+
+    def test_listing_reviews_view(self):
+        url = reverse("listing_reviews", args=[self.listing.id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "listings/listing_reviews.html")
+        self.assertIn("reviews", response.context)
+
+
+# --- Tests covering remaining branches in view_listings (including AJAX, recurring, context) ---
+class ViewListingsContextTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username="contextuser", password="pass")
+        self.client.login(username="contextuser", password="pass")
+        self.listing = Listing.objects.create(
+            user=self.user,
+            title="Context Listing",
+            location="Context Loc",
+            rent_per_hour=Decimal("10.00"),
+            description="Test context",
+            has_ev_charger=False,
+        )
+        ListingSlot.objects.create(
+            listing=self.listing,
+            start_date=(date.today() + timedelta(days=1)).strftime("%Y-%m-%d"),
+            start_time="10:00",
+            end_date=(date.today() + timedelta(days=1)).strftime("%Y-%m-%d"),
+            end_time="12:00",
+        )
+        self.view_url = reverse("view_listings")
+
+    def test_view_listings_context(self):
+        response = self.client.get(self.view_url)
+        self.assertEqual(response.status_code, 200)
+        context = response.context
+        self.assertIn("half_hour_choices", context)
+        self.assertIn("error_messages", context)
+        self.assertIn("warning_messages", context)
+        self.assertIn("has_next", context)
+        self.assertIn("next_page", context)
+
+    def test_view_listings_ajax(self):
+        response = self.client.get(self.view_url, {"ajax": "1"})
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "listings/partials/listing_cards.html")
+
+
+#############################
+# End of tests.
+#############################

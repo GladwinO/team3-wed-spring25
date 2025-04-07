@@ -33,6 +33,17 @@
               <i class="fas fa-info-circle text-secondary me-2"></i>
               {{ listing.description|truncatechars:120 }}
             </p>
+            
+            {% if listing.has_ev_charger %}
+            <div class="mt-2">
+              <span class="badge bg-warning text-dark">
+                <i class="fas fa-charging-station me-1"></i>
+                {{ listing.get_charger_level_display }} 
+                <i class="fas fa-plug mx-1"></i>
+                {{ listing.get_connector_type_display }}
+              </span>
+            </div>
+            {% endif %}
           </div>
         </div>
 

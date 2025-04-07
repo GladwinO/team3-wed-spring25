@@ -67,6 +67,37 @@
               </div>
             </div>
 
+            <div class="row mb-4">
+              <div class="col-md-4">
+                <div class="mb-3">
+                  <label for="{{ form.has_ev_charger.id_for_label }}" class="form-label">
+                    <i class="fas fa-charging-station text-primary me-1"></i> EV Charger Available
+                  </label>
+                  <div class="form-check">
+                    {{ form.has_ev_charger|add_class:"form-check-input" }}
+                  </div>
+                </div>
+              </div>
+              
+              <div class="col-md-4 charger-level-container">
+                <div class="mb-3">
+                  <label for="{{ form.charger_level.id_for_label }}" class="form-label">
+                    <i class="fas fa-bolt text-primary me-1"></i> Charger Level
+                  </label>
+                  {{ form.charger_level }}
+                </div>
+              </div>
+              
+              <div class="col-md-4 connector-type-container">
+                <div class="mb-3">
+                  <label for="{{ form.connector_type.id_for_label }}" class="form-label">
+                    <i class="fas fa-plug text-primary me-1"></i> Connector Type
+                  </label>
+                  {{ form.connector_type }}
+                </div>
+              </div>
+            </div>
+
             <!-- Location -->
             <h4 class="mb-3">
               <i class="fas fa-map-marker-alt me-2"></i>Location
@@ -199,32 +230,9 @@
     </div>
   </div>
 </div>
-
-<!-- Hidden Warning Modal -->
-<div id="warning-modal" class="warning-modal" style="display: none;">
-  <div class="warning-modal-content">
-    <span class="warning-modal-close" style="cursor:pointer;">&times;</span>
-    <p id="warning-modal-message"></p>
-  </div>
-</div>
-
-<!-- Pass block warning message from server (if any) -->
-{% if block_warning %}
-<script>
-  var blockWarningMessage = "{{ block_warning|escapejs }}";
-</script>
-{% else %}
-<script>
-  var blockWarningMessage = "";
-</script>
-{% endif %}
 {% endblock %}
 
 {% block scripts %}
+<script src="{% static 'listings/js/listing-form-shared.js' %}"></script>
 <script src="{% static 'listings/js/edit_listings.js' %}"></script>
-{% if block_warning %}
-<script>
-  alert(blockWarningMessage);
-</script>
-{% endif %}
 {% endblock %}

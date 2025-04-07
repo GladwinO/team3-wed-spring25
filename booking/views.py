@@ -9,6 +9,7 @@ from .forms import BookingForm, BookingSlotFormSet
 from listings.models import Listing
 from listings.forms import ReviewForm
 from django.contrib import messages
+from django.db import transaction
 from .utils import block_out_booking, restore_booking_availability
 
 
@@ -65,7 +66,7 @@ def available_times(request):
                 end_dt = dt.datetime.combine(
                     booking_date, dt.time(0, 0)
                 ) + dt.timedelta(days=1)
-        while current_dt < end_dt:
+        while current_dt <= end_dt:
             valid_times.add(current_dt.strftime("%H:%M"))
             current_dt += dt.timedelta(minutes=30)
     times = sorted(valid_times)
@@ -97,38 +98,51 @@ def book_listing(request, listing_id):
 
     if request.method == "POST":
         booking_form = BookingForm(request.POST)
-        slot_formset = BookingSlotFormSet(
-            request.POST,
-            form_kwargs={"listing": listing},
-        )
-        # For each form, set the listing.
-        for form in slot_formset.forms:
-            form.listing = listing
-        if booking_form.is_valid() and slot_formset.is_valid():
-            booking = booking_form.save(commit=False)
-            booking.user = request.user
-            booking.listing = listing
-            booking.status = "PENDING"
-            booking.save()
-            slot_formset.instance = booking
-            slot_formset.save()
-            total_hours = 0
-            for slot in booking.slots.all():
-                start_dt = dt.datetime.combine(slot.start_date, slot.start_time)
-                end_dt = dt.datetime.combine(slot.end_date, slot.end_time)
-                duration = (end_dt - start_dt).total_seconds() / 3600.0
-                total_hours += duration
-            booking.total_price = total_hours * float(listing.rent_per_hour)
-            booking.save()
-            messages.success(request, "Booking request created!")
-            return redirect("my_bookings")
+        if booking_form.is_valid():
+            with transaction.atomic():
+                booking = booking_form.save(commit=False)
+                booking.user = request.user
+                booking.listing = listing
+                booking.status = "PENDING"
+                booking.save()  # Save now so that booking gets an ID.
+                # Use prefix="form" so that the inline formset matches POST keys.
+                slot_formset = BookingSlotFormSet(
+                    request.POST,
+                    instance=booking,
+                    form_kwargs={"listing": listing},
+                    prefix="form",
+                )
+                # Ensure each form knows its listing.
+                for form in slot_formset.forms:
+                    form.listing = listing
+                if slot_formset.is_valid():
+                    slot_formset.save()
+                    total_hours = 0
+                    for slot in booking.slots.all():
+                        start_dt = dt.datetime.combine(slot.start_date, slot.start_time)
+                        end_dt = dt.datetime.combine(slot.end_date, slot.end_time)
+                        duration = (end_dt - start_dt).total_seconds() / 3600.0
+                        total_hours += duration
+                    booking.total_price = total_hours * float(listing.rent_per_hour)
+                    booking.save()
+                    messages.success(request, "Booking request created!")
+                    return redirect("my_bookings")
+                else:
+                    transaction.set_rollback(True)
+                    messages.error(request, "Please fix the errors below.")
         else:
+            # Instantiate the formset so it can be rendered with errors.
+            slot_formset = BookingSlotFormSet(
+                request.POST,
+                form_kwargs={"listing": listing},
+                prefix="form",
+            )
             messages.error(request, "Please fix the errors below.")
     else:
         booking_form = BookingForm()
-        slot_formset = BookingSlotFormSet()
-        # Pass the listing via form_kwargs
-        slot_formset = BookingSlotFormSet(form_kwargs={"listing": listing})
+        slot_formset = BookingSlotFormSet(
+            form_kwargs={"listing": listing}, prefix="form"
+        )
 
     return render(
         request,

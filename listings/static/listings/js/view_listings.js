@@ -227,7 +227,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function initMap() {
       if (!map) {
         map = L.map("map-view").setView([40.69441, -73.98653], 13);
-        L.tileLayer("https://tile.openstreetmap.bzh/ca/{z}/{x}/{y}.png", {
+        L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
           maxZoom: 19,
           attribution: "© OpenStreetMap contributors",
         }).addTo(map);
@@ -300,6 +300,64 @@ document.addEventListener("DOMContentLoaded", function () {
     showListView();
   }
 
+  // Add this function in your document ready handler
+  function initializeEvFilters() {
+    // Try multiple selectors to find the checkbox
+    const evChargerCheckbox = 
+      document.querySelector('input[name="has_ev_charger"]') || 
+      document.querySelector('input[name="ev_charger"]') ||
+      document.querySelector('#ev_charger');
+    
+    // Log what we found to help debug
+    if (evChargerCheckbox) {
+      console.log("Found EV checkbox with name:", evChargerCheckbox.name, "and id:", evChargerCheckbox.id);
+    } else {
+      console.error("EV charger checkbox not found with any known selector");
+      // List all checkboxes to help debug
+      console.log("All checkboxes:", document.querySelectorAll('input[type="checkbox"]'));
+      return;
+    }
+    
+    // Similarly, be robust with container selection
+    const evContainers = document.querySelectorAll('.ev-charger-container');
+    console.log("Found", evContainers.length, "EV container elements");
+    
+    if (evContainers.length === 0) {
+      console.error("No EV container elements found");
+      return;
+    }
+    
+    function toggleEvFields() {
+      const isChecked = evChargerCheckbox.checked;
+      console.log("EV checkbox state:", isChecked);
+      
+      // Toggle visibility
+      evContainers.forEach(container => {
+        container.style.display = isChecked ? 'block' : 'none';
+      });
+      
+      // Handle field values and disabled state
+      const chargerLevelField = document.querySelector('[name="charger_level"]');
+      const connectorTypeField = document.querySelector('[name="connector_type"]');
+      
+      if (chargerLevelField) {
+        chargerLevelField.disabled = !isChecked;
+        if (!isChecked) chargerLevelField.value = '';
+      }
+      
+      if (connectorTypeField) {
+        connectorTypeField.disabled = !isChecked;
+        if (!isChecked) connectorTypeField.value = '';
+      }
+    }
+    
+    // Run the function initially
+    toggleEvFields();
+    
+    // Add event listener for changes
+    evChargerCheckbox.addEventListener('change', toggleEvFields);
+  }
+
   // Initialize all components
   initializeFilters();
   initializeRecurringPatterns();
@@ -307,4 +365,5 @@ document.addEventListener("DOMContentLoaded", function () {
   setupLoadMoreButton();
   setupMapView();
   setupFilterButton();
+  initializeEvFilters(); // Use this instead of the shared utility
 });

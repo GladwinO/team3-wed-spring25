@@ -51,7 +51,6 @@ INSTALLED_APPS = [
     "widget_tweaks",
     "messaging",
     "storages",
-    "analytics",
 ]
 
 MIDDLEWARE = [

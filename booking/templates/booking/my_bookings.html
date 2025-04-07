@@ -34,7 +34,7 @@
                   <!-- Location -->
                   <p class="d-flex align-items-start mb-2">
                     <i class="fas fa-map-marker-alt text-secondary me-2 mt-1"></i>
-                    <span>{{ booking.listing.location }}</span>
+                    <span>{{ booking.listing.location_name }}</span>
                   </p>
                   
                   <!-- Price -->
@@ -95,21 +95,31 @@
                   {% endif %}
                 </div>
                 <div>
-                  {% if not booking.is_reviewed %}
-                    {% if booking.can_be_reviewed %}
-                      <a href="{% url 'review_booking' booking.id %}" class="btn btn-primary btn-sm">
-                        <i class="fas fa-star me-1"></i>Review
-                      </a>
-                    {% elif booking.status == "DECLINED" %}
-                      <a href="{% url 'cancel_booking' booking.id %}" class="btn btn-danger btn-sm">
-                        <i class="fas fa-trash me-1"></i>Remove
-                      </a>
-                    {% else %}
-                      <a href="{% url 'cancel_booking' booking.id %}" class="btn btn-danger btn-sm">
-                        <i class="fas fa-ban me-1"></i>Cancel
-                      </a>
+                  <div>
+                    {% if not booking.is_reviewed %}
+                      {% if booking.status == "APPROVED" and booking.is_ongoing %}
+                        <div class="alert alert-success mb-0 py-2 px-3">
+                          <i class="fas fa-car me-1"></i>Active - Enjoy your parking!
+                        </div>
+                      {% elif booking.status == "APPROVED" and booking.is_within_24_hours %}
+                        <div class="alert alert-info mb-0 py-2 px-3">
+                          <i class="fas fa-info-circle me-1"></i>Booked - To make changes please contact owner
+                        </div>
+                      {% elif booking.can_be_reviewed %}
+                        <a href="{% url 'review_booking' booking.id %}" class="btn btn-primary btn-sm">
+                          <i class="fas fa-star me-1"></i>Review
+                        </a>
+                      {% elif booking.status == "DECLINED" %}
+                        <a href="{% url 'cancel_booking' booking.id %}" class="btn btn-danger btn-sm">
+                          <i class="fas fa-trash me-1"></i>Remove
+                        </a>
+                      {% else %}
+                        <a href="{% url 'cancel_booking' booking.id %}" class="btn btn-danger btn-sm">
+                          <i class="fas fa-ban me-1"></i>Cancel
+                        </a>
+                      {% endif %}
                     {% endif %}
-                  {% endif %}
+                  </div>
                 </div>
               </div>
             </div>
