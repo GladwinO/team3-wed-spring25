@@ -6,6 +6,7 @@ from django.urls import reverse
 
 from listings.models import Listing, ListingSlot, Review
 from booking.models import Booking, BookingSlot
+from booking.utils import block_out_booking
 
 User = get_user_model()
 
@@ -404,3 +405,475 @@ class ViewsTests(TestCase):
         self.assertGreaterEqual(len(bookings_list), 1)
         for b in bookings_list:
             self.assertTrue(hasattr(b, "slots_info"))
+
+
+class RecurringBookingTests(TestCase):
+    def setUp(self):
+        # Create test users
+        self.owner = User.objects.create_user(username="owner", password="pass123")
+        self.renter = User.objects.create_user(username="renter", password="pass123")
+
+        # Create a standard listing with availability for the next 7 days (continuous)
+        self.listing = Listing.objects.create(
+            user=self.owner,
+            title="Test Parking Spot",
+            description="A test parking spot",
+            location="123 Test St",
+            rent_per_hour=10.0,
+        )
+
+        # Create availability for the next 7 days (one continuous slot)
+        today = dt.date.today()
+        self.listing_slot = ListingSlot.objects.create(
+            listing=self.listing,
+            start_date=today,
+            start_time=dt.time(9, 0),  # 9 AM
+            end_date=today + dt.timedelta(days=7),
+            end_time=dt.time(17, 0),  # 5 PM
+        )
+
+        # Create a long-term listing to test weekly recurring bookings
+        self.long_term_listing = Listing.objects.create(
+            user=self.owner,
+            title="Long Term Parking Spot",
+            description="A long-term parking spot for testing",
+            location="789 Long Term St",
+            rent_per_hour=8.0,
+        )
+
+        # Create availability for 7 weeks (49 days) for long-term listing
+        today = dt.date.today()
+        self.long_term_listing_slot = ListingSlot.objects.create(
+            listing=self.long_term_listing,
+            start_date=today,
+            start_time=dt.time(9, 0),  # 9 AM
+            end_date=today + dt.timedelta(days=49),
+            end_time=dt.time(17, 0),  # 5 PM
+        )
+
+        # Create a listing with fragmented availability (separate days)
+        self.fragmented_listing = Listing.objects.create(
+            user=self.owner,
+            title="Fragmented Parking Spot",
+            description="A test parking spot with gaps in availability",
+            location="456 Test St",
+            rent_per_hour=10.0,
+        )
+
+        # Available on days 1, 3, 5, 7 (creating separate slots for discrete intervals)
+        for day_offset in [0, 2, 4, 6]:
+            day = today + dt.timedelta(days=day_offset)
+            ListingSlot.objects.create(
+                listing=self.fragmented_listing,
+                start_date=day,
+                start_time=dt.time(9, 0),  # 9 AM
+                end_date=day,
+                end_time=dt.time(17, 0),  # 5 PM
+            )
+
+        # Test weekly fragmented ability
+        self.weekly_fragmented_listing = Listing.objects.create(
+            user=self.owner,
+            title="Weekly Fragmented Parking Spot",
+            description="A test parking spot with gaps in weekly availability",
+            location="321 Weekly Test St",
+            rent_per_hour=10.0,
+        )
+
+        # Available on weeks 1, 3, 5 (creating separate slots for discrete intervals)
+        for week_offset in [0, 2, 4]:
+            start_date = today + dt.timedelta(weeks=week_offset)
+            ListingSlot.objects.create(
+                listing=self.weekly_fragmented_listing,
+                start_date=start_date,
+                start_time=dt.time(9, 0),  # 9 AM
+                end_date=start_date + dt.timedelta(days=6),  # End of week
+                end_time=dt.time(17, 0),  # 5 PM
+            )
+
+        # Create a listing with overnight availability
+        self.overnight_listing = Listing.objects.create(
+            user=self.owner,
+            title="Overnight Spot",
+            description="Available overnight",
+            location="111 Night St",
+            rent_per_hour=10.0,
+        )
+
+        # Available from 5 PM to 9 AM the next day for a week
+        ListingSlot.objects.create(
+            listing=self.overnight_listing,
+            start_date=today,
+            start_time=dt.time(17, 0),  # 5 PM
+            end_date=today + dt.timedelta(days=8),
+            end_time=dt.time(9, 0),  # 9 AM
+        )
+
+        # Login the renter
+        self.client = Client()
+        self.client.login(username="renter", password="pass123")
+
+    def test_missing_required_fields(self):
+        """Test recurring booking with missing required fields"""
+        post_data = {
+            "email": "renter@example.com",
+            "is_recurring": "true",
+            # Missing start_date
+            "recurring-start_time": "10:00",
+            "recurring-end_time": "14:00",
+            "recurring_pattern": "daily",
+            "recurring-end_date": (dt.date.today() + dt.timedelta(days=3)).strftime(
+                "%Y-%m-%d"
+            ),
+        }
+
+        response = self.client.post(
+            reverse("book_listing", args=[self.listing.id]), data=post_data
+        )
+
+        # Check for error message
+        self.assertIn("error_messages", response.context)
+        self.assertTrue(
+            any("required" in msg for msg in response.context["error_messages"])
+        )
+
+        # No booking should be created
+        self.assertEqual(Booking.objects.count(), 0)
+
+    def test_end_time_before_start_time(self):
+        """Test non-overnight booking with end time before start time"""
+        today = dt.date.today()
+
+        post_data = {
+            "email": "renter@example.com",
+            "is_recurring": "true",
+            "recurring-start_date": today.strftime("%Y-%m-%d"),
+            "recurring-start_time": "14:00",  # 2 PM
+            "recurring-end_time": "10:00",  # 10 AM (before start time)
+            "recurring-pattern": "daily",
+            "recurring-end_date": (today + dt.timedelta(days=3)).strftime("%Y-%m-%d"),
+        }
+
+        response = self.client.post(
+            reverse("book_listing", args=[self.listing.id]), data=post_data
+        )
+
+        # Should have error message
+        self.assertIn("error_messages", response.context)
+        self.assertTrue(
+            any("time" in msg.lower() for msg in response.context["error_messages"])
+        )
+
+        # No booking should be created
+        self.assertEqual(Booking.objects.count(), 0)
+
+    def test_end_date_before_start_date(self):
+        """Test booking with end date before start date"""
+        today = dt.date.today()
+
+        post_data = {
+            "email": "renter@example.com",
+            "is_recurring": "true",
+            "recurring-start_date": (today + dt.timedelta(days=3)).strftime("%Y-%m-%d"),
+            "recurring-start_time": "10:00",
+            "recurring-end_time": "14:00",
+            "recurring-pattern": "daily",
+            "recurring-end_date": today.strftime("%Y-%m-%d"),  # Before start date
+        }
+
+        response = self.client.post(
+            reverse("book_listing", args=[self.listing.id]), data=post_data
+        )
+
+        # Should have error message about end date before start date
+        self.assertIn("error_messages", response.context)
+        self.assertTrue(
+            any("date" in msg.lower() for msg in response.context["error_messages"])
+        )
+
+        # No booking should be created
+        self.assertEqual(Booking.objects.count(), 0)
+
+    def test_start_time_before_available(self):
+        """Test booking with start time before available hours"""
+        today = dt.date.today()
+
+        post_data = {
+            "email": "renter@example.com",
+            "is_recurring": "true",
+            "recurring-start_date": today.strftime("%Y-%m-%d"),
+            "recurring-start_time": "08:00",  # Before available (9 AM)
+            "recurring-end_time": "10:00",
+            "recurring-pattern": "daily",
+            "recurring-end_date": (today + dt.timedelta(days=3)).strftime("%Y-%m-%d"),
+        }
+
+        response = self.client.post(
+            reverse("book_listing", args=[self.listing.id]), data=post_data
+        )
+
+        # Should have error message
+        self.assertIn("error_messages", response.context)
+        self.assertTrue(
+            any(
+                "unavailable" in msg.lower()
+                for msg in response.context["error_messages"]
+            )
+        )
+
+        # No booking should be created
+        self.assertEqual(Booking.objects.count(), 0)
+
+    def test_end_time_after_available(self):
+        """Test booking with end time after available hours"""
+        today = dt.date.today()
+
+        post_data = {
+            "email": "renter@example.com",
+            "is_recurring": "true",
+            "recurring-start_date": today.strftime("%Y-%m-%d"),
+            "recurring-start_time": "15:00",  # 3 PM
+            "recurring-end_time": "18:00",  # After available (5 PM)
+            "recurring-pattern": "daily",
+            "recurring-end_date": (today + dt.timedelta(days=7)).strftime("%Y-%m-%d"),
+        }
+
+        self.client.post(
+            reverse("book_listing", args=[self.listing.id]), data=post_data
+        )
+
+        # Check that no booking was created
+        self.assertEqual(Booking.objects.count(), 0)
+
+    def test_successful_daily_recurring_booking(self):
+        """Test successful daily recurring booking"""
+        today = dt.date.today()
+
+        post_data = {
+            "email": "renter@example.com",
+            "is_recurring": "true",
+            "recurring-start_date": today.strftime("%Y-%m-%d"),
+            "recurring-start_time": "10:00",
+            "recurring-end_time": "14:00",
+            "recurring-pattern": "daily",
+            "recurring-end_date": (today + dt.timedelta(days=3)).strftime("%Y-%m-%d"),
+        }
+
+        response = self.client.post(
+            reverse("book_listing", args=[self.listing.id]), data=post_data, follow=True
+        )
+
+        # Should redirect to my_bookings
+        self.assertRedirects(response, reverse("my_bookings"))
+
+        # Should create one booking with 4 slots (today + 3 days)
+        self.assertEqual(Booking.objects.count(), 1)
+        booking = Booking.objects.first()
+        self.assertEqual(booking.slots.count(), 4)
+
+    def test_failed_daily_recurring_booking_with_gaps(self):
+        """Test daily booking that fails due to gaps in availability"""
+        today = dt.date.today()
+
+        post_data = {
+            "email": "renter@example.com",
+            "is_recurring": "true",
+            "recurring-start_date": today.strftime("%Y-%m-%d"),
+            "recurring-start_time": "10:00",
+            "recurring-end_time": "14:00",
+            "recurring-pattern": "daily",
+            "recurring-end_date": (today + dt.timedelta(days=3)).strftime("%Y-%m-%d"),
+        }
+
+        response = self.client.post(
+            reverse("book_listing", args=[self.fragmented_listing.id]), data=post_data
+        )
+
+        # Should have error message - the fragmented listing has days 0, 2, 4, 6 available
+        # So a daily booking for days 0-3 would include day 1 which is not available
+        self.assertIn("error_messages", response.context)
+        self.assertTrue(
+            any(
+                "unavailable" in msg.lower()
+                for msg in response.context["error_messages"]
+            )
+        )
+
+        # No booking should be created
+        self.assertEqual(Booking.objects.count(), 0)
+
+    def test_successful_weekly_recurring_booking(self):
+        """Test successful weekly recurring booking"""
+        today = dt.date.today()
+
+        # Make sure there are no existing bookings
+        Booking.objects.all().delete()
+
+        post_data = {
+            "email": "renter@example.com",
+            "is_recurring": "true",
+            "recurring-start_date": today.strftime("%Y-%m-%d"),
+            "recurring-start_time": "10:00",
+            "recurring-end_time": "14:00",
+            "recurring_pattern": "weekly",  # Change hyphen to underscore
+            "recurring-weeks": "3",
+        }
+
+        # Make sure we use follow=True to follow redirects
+        self.client.post(
+            reverse("book_listing", args=[self.long_term_listing.id]),
+            data=post_data,
+            follow=True,
+        )
+
+        # Check that a booking was created with the right number of slots
+        self.assertEqual(Booking.objects.count(), 1)
+        booking = Booking.objects.first()
+        self.assertEqual(booking.slots.count(), 3)
+
+    def test_failed_weekly_recurring_booking_with_gaps(self):
+        """Test weekly booking that fails due to gaps in availability"""
+
+        today = dt.date.today()
+
+        post_data = {
+            "email": "renter@example.com",
+            "is_recurring": "true",
+            "recurring-start_date": today.strftime("%Y-%m-%d"),
+            "recurring-start_time": "10:00",
+            "recurring-end_time": "14:00",
+            "recurring_pattern": "weekly",  # Change hyphen to underscore
+            "recurring-weeks": "5",
+        }
+
+        response = self.client.post(
+            reverse("book_listing", args=[self.weekly_fragmented_listing.id]),
+            data=post_data,
+        )
+
+        # Should have error message - the weekly fragmented listing has weeks 0, 2, 4 available
+        # So a weekly booking for weeks 0-4 would include week 1 which is not available
+
+        self.assertIn("error_messages", response.context)
+        self.assertTrue(
+            any(
+                "unavailable" in msg.lower()
+                for msg in response.context["error_messages"]
+            )
+        )
+
+        # No booking should be created
+        self.assertEqual(Booking.objects.count(), 0)
+
+    def test_overnight_booking_success(self):
+        """Test successful overnight recurring booking"""
+        today = dt.date.today()
+
+        post_data = {
+            "email": "renter@example.com",
+            "is_recurring": "true",
+            "recurring-start_date": today.strftime("%Y-%m-%d"),
+            "recurring-start_time": "20:00",  # 8 PM
+            "recurring-end_time": "08:00",  # 8 AM (next day)
+            "recurring-overnight": "on",  # Use hyphen for consistency
+            "recurring-pattern": "daily",  # Use underscore for consistency
+            "recurring-end_date": (today + dt.timedelta(days=7)).strftime("%Y-%m-%d"),
+        }
+
+        self.client.post(
+            reverse("book_listing", args=[self.overnight_listing.id]),
+            data=post_data,
+            follow=True,
+        )
+
+        # Check for successful booking creation rather than redirect
+        self.assertEqual(Booking.objects.count(), 1)
+        booking = Booking.objects.first()
+        self.assertEqual(booking.slots.count(), 8)
+
+    def test_overnight_booking_beyond_available_range(self):
+        """Test overnight booking where the last night extends beyond available range"""
+        today = dt.date.today()
+
+        # Available from 5 PM to 9 AM the next day for exactly 7 days
+        last_day = today + dt.timedelta(days=7)  # Day 0 + 7 = day 8
+
+        # Try to book through the last day, where the time extends past the end of the slot
+        post_data = {
+            "email": "renter@example.com",
+            "is_recurring": "true",
+            "recurring-start_date": today.strftime("%Y-%m-%d"),
+            "recurring-start_time": "20:00",  # 8 PM
+            "recurring-end_time": "10:00",  # 8 AM (next day)
+            "recurring_overnight": "on",
+            "recurring-pattern": "daily",
+            "recurring-end_date": last_day.strftime(
+                "%Y-%m-%d"
+            ),  # This would require availability on day 7+1
+        }
+
+        self.client.post(
+            reverse("book_listing", args=[self.overnight_listing.id]), data=post_data
+        )
+
+        # Check that no booking was created
+        self.assertEqual(Booking.objects.count(), 0)
+
+    def test_booking_with_overlapping_existing_bookings(self):
+        """Test recurring booking that would overlap with existing approved bookings"""
+        today = dt.date.today()
+
+        # Ensure no existing bookings before the test
+        Booking.objects.all().delete()
+        BookingSlot.objects.all().delete()
+
+        self.assertEqual(Booking.objects.count(), 0)  # All bookings cleared
+
+        # First, create an approved booking for day 2
+        booking = Booking.objects.create(
+            user=self.renter,
+            listing=self.listing,
+            email="renter@example.com",
+            status="APPROVED",  # This booking is already approved
+            total_price=40.0,
+        )
+
+        day2 = today + dt.timedelta(days=2)
+        BookingSlot.objects.create(
+            booking=booking,
+            start_date=day2,
+            start_time=dt.time(12, 0),  # Noon to 2 PM on day 2
+            end_date=day2,
+            end_time=dt.time(14, 0),
+        )
+
+        # Apply the block_out_booking function to update listing availability
+
+        block_out_booking(booking.listing, booking)
+
+        # Now try to create a recurring booking that includes day 2 at the same time
+        post_data = {
+            "email": "renter@example.com",
+            "is_recurring": "true",
+            "recurring-start_date": today.strftime("%Y-%m-%d"),
+            "recurring-start_time": "12:00",  # Noon
+            "recurring-end_time": "14:00",  # 2 PM
+            "recurring-pattern": "daily",
+            "recurring-end_date": (today + dt.timedelta(days=4)).strftime("%Y-%m-%d"),
+        }
+
+        response = self.client.post(
+            reverse("book_listing", args=[self.listing.id]), data=post_data
+        )
+
+        # Should have error message about overlapping bookings
+        self.assertIn("error_messages", response.context)
+        self.assertTrue(
+            any(
+                "unavailable" in msg.lower()
+                for msg in response.context["error_messages"]
+            )
+        )
+
+        # Instead of checking context, check that no new booking was created
+        self.assertEqual(Booking.objects.count(), 1)  # Still just the original booking

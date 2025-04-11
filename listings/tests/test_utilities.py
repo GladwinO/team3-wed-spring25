@@ -1,5 +1,6 @@
 from django.test import TestCase
-from listings.utilities import simplify_location
+
+from ..utils import simplify_location
 
 
 class SimplifyLocationTests(TestCase):

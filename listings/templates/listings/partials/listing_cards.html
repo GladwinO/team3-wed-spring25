@@ -15,12 +15,16 @@
           <div class="d-flex align-items-center mb-2">
             <h3 class="card-title fw-bold mb-0 me-2">{{ listing.title }}</h3>
             {% if user == listing.user %}
-              <span class="badge bg-secondary"><i class="fas fa-user-check me-1"></i> Your listing</span>
+            <span class="badge bg-secondary"
+              ><i class="fas fa-user-check me-1"></i> Your listing</span
+            >
             {% else %}
-              <span class="badge bg-light text-dark border"><i class="fas fa-user me-1"></i> {{ listing.user.username }}</span>
+            <span class="badge bg-light text-dark border"
+              ><i class="fas fa-user me-1"></i> {{ listing.user.username}}</span
+            >
             {% endif %}
           </div>
-          
+
           <div class="mb-2">
             <!-- Location with icon -->
             <p class="card-text d-flex align-items-center mb-1">
@@ -33,12 +37,18 @@
               <i class="fas fa-info-circle text-secondary me-2"></i>
               {{ listing.description|truncatechars:120 }}
             </p>
-            
-            {% if listing.has_ev_charger %}
+
+            <!-- Distance (if available) -->
+            {% if listing.distance is not None %}
+            <p class="card-text small text-muted mb-1">
+              <i class="fas fa-route text-secondary me-2"></i>
+              {{ listing.distance|floatformat:1 }} km away
+            </p>
+            {% endif %} {% if listing.has_ev_charger %}
             <div class="mt-2">
               <span class="badge bg-warning text-dark">
                 <i class="fas fa-charging-station me-1"></i>
-                {{ listing.get_charger_level_display }} 
+                {{ listing.get_charger_level_display }}
                 <i class="fas fa-plug mx-1"></i>
                 {{ listing.get_connector_type_display }}
               </span>
@@ -80,20 +90,29 @@
             <!-- User Info and Buttons -->
             <div>
               {% if user != listing.user %}
-                <div class="d-grid gap-2">
-                  <a href="{% url 'book_listing' listing.id %}" class="btn btn-primary btn-sm">
-                    <i class="fas fa-calendar-check me-1"></i> Book Now
-                  </a>
-                  <a href="{% url 'listing_reviews' listing.id %}" class="btn btn-secondary btn-sm">
-                    <i class="fas fa-comment me-1"></i> Reviews
-                  </a>
-                </div>
+              <div class="d-grid gap-2">
+                <a
+                  href="{% url 'book_listing' listing.id %}"
+                  class="btn btn-primary btn-sm"
+                >
+                  <i class="fas fa-calendar-check me-1"></i> Book Now
+                </a>
+                <a
+                  href="{% url 'listing_reviews' listing.id %}"
+                  class="btn btn-secondary btn-sm"
+                >
+                  <i class="fas fa-comment me-1"></i> Reviews
+                </a>
+              </div>
               {% else %}
-                <div class="d-grid">
-                  <a href="{% url 'listing_reviews' listing.id %}" class="btn btn-secondary btn-sm">
-                    <i class="fas fa-comment me-1"></i> Reviews
-                  </a>
-                </div>
+              <div class="d-grid">
+                <a
+                  href="{% url 'listing_reviews' listing.id %}"
+                  class="btn btn-secondary btn-sm"
+                >
+                  <i class="fas fa-comment me-1"></i> Reviews
+                </a>
+              </div>
               {% endif %}
             </div>
           </div>
@@ -105,11 +124,14 @@
   <div class="text-center p-4">
     <p>No parking spots available that match your filters.</p>
   </div>
-  {% endfor %}
-  
-  {% if has_next %}
+  {% endfor %} {% if has_next %}
   <div class="text-center my-4">
-    <button id="load-more-btn" class="btn btn-accent" data-next-page="{{ next_page }}"> Load More Listings
+    <button
+      id="load-more-btn"
+      class="btn btn-accent"
+      data-next-page="{{ next_page }}"
+    >
+      Load More Listings
     </button>
   </div>
   {% endif %}

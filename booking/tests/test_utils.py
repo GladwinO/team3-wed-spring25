@@ -8,6 +8,8 @@ from booking.utils import (
     merge_intervals,
     block_out_booking,
     restore_booking_availability,
+    generate_recurring_dates,
+    generate_booking_slots,
 )
 from listings.models import Listing, ListingSlot
 from booking.models import Booking, BookingSlot
@@ -209,3 +211,108 @@ class UtilsTests(TestCase):
         slot = slots[0]
         self.assertEqual(slot.start_time, dt.time(10, 0))
         self.assertEqual(slot.end_time, dt.time(20, 0))
+
+    # ---- Tests for generate_recurring_dates ----
+    def test_generate_recurring_dates_daily(self):
+        """Test generating daily recurring dates."""
+        start_date = dt.date(2025, 1, 1)
+        end_date = dt.date(2025, 1, 5)
+        dates = generate_recurring_dates(start_date, "daily", end_date=end_date)
+        expected = [
+            dt.date(2025, 1, 1),
+            dt.date(2025, 1, 2),
+            dt.date(2025, 1, 3),
+            dt.date(2025, 1, 4),
+            dt.date(2025, 1, 5),
+        ]
+        self.assertEqual(dates, expected)
+
+    def test_generate_recurring_dates_weekly(self):
+        """Test generating weekly recurring dates."""
+        start_date = dt.date(2025, 1, 1)
+        weeks = 3
+        dates = generate_recurring_dates(start_date, "weekly", weeks=weeks)
+        expected = [
+            dt.date(2025, 1, 1),
+            dt.date(2025, 1, 8),
+            dt.date(2025, 1, 15),
+        ]
+        self.assertEqual(dates, expected)
+
+    def test_generate_recurring_dates_daily_missing_end_date(self):
+        """Test that daily pattern without end_date raises ValueError."""
+        start_date = dt.date(2025, 1, 1)
+        with self.assertRaises(ValueError) as context:
+            generate_recurring_dates(start_date, "daily")
+        self.assertEqual(
+            str(context.exception), "End date is required for daily pattern"
+        )
+
+    def test_generate_recurring_dates_weekly_missing_weeks(self):
+        """Test that weekly pattern without weeks raises ValueError."""
+        start_date = dt.date(2025, 1, 1)
+        with self.assertRaises(ValueError) as context:
+            generate_recurring_dates(start_date, "weekly")
+        self.assertEqual(
+            str(context.exception), "Number of weeks is required for weekly pattern"
+        )
+
+    def test_generate_recurring_dates_invalid_pattern(self):
+        """Test that invalid pattern raises ValueError."""
+        start_date = dt.date(2025, 1, 1)
+        with self.assertRaises(ValueError) as context:
+            generate_recurring_dates(start_date, "monthly")
+        self.assertEqual(str(context.exception), "Unknown pattern: monthly")
+
+    # ---- Tests for generate_booking_slots ----
+    def test_generate_booking_slots_regular(self):
+        """Test generating regular (non-overnight) booking slots."""
+        dates = [dt.date(2025, 1, 1), dt.date(2025, 1, 8)]
+        start_time = dt.time(10, 0)
+        end_time = dt.time(12, 0)
+        slots = generate_booking_slots(dates, start_time, end_time, is_overnight=False)
+        expected = [
+            {
+                "start_date": dt.date(2025, 1, 1),
+                "start_time": dt.time(10, 0),
+                "end_date": dt.date(2025, 1, 1),
+                "end_time": dt.time(12, 0),
+            },
+            {
+                "start_date": dt.date(2025, 1, 8),
+                "start_time": dt.time(10, 0),
+                "end_date": dt.date(2025, 1, 8),
+                "end_time": dt.time(12, 0),
+            },
+        ]
+        self.assertEqual(slots, expected)
+
+    def test_generate_booking_slots_overnight(self):
+        """Test generating overnight booking slots."""
+        dates = [dt.date(2025, 1, 1), dt.date(2025, 1, 8)]
+        start_time = dt.time(18, 0)
+        end_time = dt.time(9, 0)
+        slots = generate_booking_slots(dates, start_time, end_time, is_overnight=True)
+        expected = [
+            {
+                "start_date": dt.date(2025, 1, 1),
+                "start_time": dt.time(18, 0),
+                "end_date": dt.date(2025, 1, 2),
+                "end_time": dt.time(9, 0),
+            },
+            {
+                "start_date": dt.date(2025, 1, 8),
+                "start_time": dt.time(18, 0),
+                "end_date": dt.date(2025, 1, 9),
+                "end_time": dt.time(9, 0),
+            },
+        ]
+        self.assertEqual(slots, expected)
+
+    def test_generate_booking_slots_empty_dates(self):
+        """Test generating booking slots with an empty list of dates."""
+        dates = []
+        start_time = dt.time(10, 0)
+        end_time = dt.time(12, 0)
+        slots = generate_booking_slots(dates, start_time, end_time, is_overnight=False)
+        self.assertEqual(slots, [])

@@ -63,7 +63,6 @@ class BookingSlotForm(forms.ModelForm):
         # Set max date based on listing's latest end date
         if self.listing and hasattr(self.listing, "latest_end_datetime"):
             latest_date = self.listing.latest_end_datetime
-
             if latest_date:
                 max_date_str = latest_date.date().strftime("%Y-%m-%d")
                 self.fields["start_date"].widget.attrs["max"] = max_date_str
@@ -87,16 +86,37 @@ class BookingSlotForm(forms.ModelForm):
             )
             valid_times = set()
             for slot in available_slots:
-                current_dt = dt.datetime.combine(start_date, slot.start_time)
-                end_dt = dt.datetime.combine(start_date, slot.end_time)
+                # Use the same logic as in the available_times view.
+                if slot.start_time == slot.end_time:
+                    current_dt = dt.datetime.combine(start_date, dt.time(0, 0))
+                    end_dt = current_dt + dt.timedelta(days=1)
+                else:
+                    if start_date == slot.start_date:
+                        current_dt = dt.datetime.combine(start_date, slot.start_time)
+                    else:
+                        current_dt = dt.datetime.combine(start_date, dt.time(0, 0))
+                    if start_date == slot.end_date:
+                        end_dt = dt.datetime.combine(start_date, slot.end_time)
+                    else:
+                        end_dt = dt.datetime.combine(
+                            start_date, dt.time(0, 0)
+                        ) + dt.timedelta(days=1)
                 while current_dt <= end_dt:
                     valid_times.add(current_dt.strftime("%H:%M"))
                     current_dt += dt.timedelta(minutes=30)
             valid_times = sorted(valid_times)
+            # If valid_times is nonempty, use them; otherwise fallback.
             if valid_times:
                 choices = [(t, t) for t in valid_times]
                 self.fields["start_time"].choices = choices
                 self.fields["end_time"].choices = choices
+            else:
+                self.fields["start_time"].choices = HALF_HOUR_CHOICES
+                self.fields["end_time"].choices = HALF_HOUR_CHOICES
+        else:
+            # Fallback if no start_date is provided.
+            self.fields["start_time"].choices = HALF_HOUR_CHOICES
+            self.fields["end_time"].choices = HALF_HOUR_CHOICES
 
     def clean(self):
         cleaned_data = super().clean()

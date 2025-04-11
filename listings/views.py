@@ -1,18 +1,20 @@
 from datetime import datetime, time, timedelta
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import get_object_or_404, redirect, render
 from django.core.paginator import Paginator
 from django.db import models
 from django.forms import inlineformset_factory
+from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import (
     ListingForm,
+    ListingSlotForm,
     ListingSlotFormSet,
     validate_non_overlapping_slots,
-    ListingSlotForm,
 )
-from .models import Listing, ListingSlot, EV_CHARGER_LEVELS, EV_CONNECTOR_TYPES
+from .models import EV_CHARGER_LEVELS, EV_CONNECTOR_TYPES, Listing, ListingSlot
+from .utils import calculate_distance, extract_coordinates, has_active_filters
 
 # Define an inline formset for editing (extra=0)
 ListingSlotFormSetEdit = inlineformset_factory(
@@ -25,6 +27,50 @@ HALF_HOUR_CHOICES = [
     for hour in range(24)
     for minute in (0, 30)
 ]
+
+
+def merge_listing_slots(listing):
+    """
+    Merge continuous or overlapping availability slots for the given listing.
+    Two slots are merged if the end datetime of one equals or overlaps
+    the start datetime of the next. The merged slot will span from the earliest
+    start to the latest end among continuous/overlapping slots.
+    """
+    slots = list(listing.slots.all())
+    if not slots:
+        return
+
+    # Convert each slot to a (start_datetime, end_datetime) tuple.
+    intervals = []
+    for slot in slots:
+        start_dt = datetime.combine(slot.start_date, slot.start_time)
+        end_dt = datetime.combine(slot.end_date, slot.end_time)
+        intervals.append((start_dt, end_dt))
+
+    # Sort intervals by start time.
+    intervals.sort(key=lambda iv: iv[0])
+    merged = []
+    for interval in intervals:
+        if not merged:
+            merged.append(interval)
+        else:
+            last_start, last_end = merged[-1]
+            # If the intervals overlap or are continuous (i.e. adjacent), merge them.
+            if interval[0] <= last_end:
+                merged[-1] = (last_start, max(last_end, interval[1]))
+            else:
+                merged.append(interval)
+
+    # Update ListingSlot records: delete all current slots and create new ones.
+    listing.slots.all().delete()
+    for start_dt, end_dt in merged:
+        ListingSlot.objects.create(
+            listing=listing,
+            start_date=start_dt.date(),
+            start_time=start_dt.time(),
+            end_date=end_dt.date(),
+            end_time=end_dt.time(),
+        )
 
 
 @login_required
@@ -52,6 +98,8 @@ def create_listing(request):
             new_listing.save()
             slot_formset.instance = new_listing
             slot_formset.save()
+            # Merge continuous slots if they are present.
+            merge_listing_slots(new_listing)
             messages.success(request, "Listing created successfully!")
             return redirect("view_listings")
         else:
@@ -185,7 +233,6 @@ def edit_listing(request, listing_id):
                                 },
                             )
 
-            # Save the changes.
             listing_form.save()
             slot_formset.save()
 
@@ -194,6 +241,9 @@ def edit_listing(request, listing_id):
                 slot_end = datetime.combine(slot.end_date, slot.end_time)
                 if slot_end <= datetime.now():
                     slot.delete()
+
+            # Merge continuous slots if needed.
+            merge_listing_slots(listing)
 
             messages.success(request, "Listing updated successfully!")
             return redirect("manage_listings")
@@ -446,12 +496,51 @@ def view_listings(request):
         all_listings = all_listings.order_by("-id")  # Note the minus sign
 
     processed_listings = []
-    for listing in all_listings:
+
+    search_lat = request.GET.get("lat")
+    search_lng = request.GET.get("lng")
+    radius = request.GET.get("radius")
+
+    if search_lat and search_lng:
+        try:
+            search_lat = float(search_lat)
+            search_lng = float(search_lng)
+
+            for listing in all_listings:
+                try:
+                    listing_lat, listing_lng = extract_coordinates(listing.location)
+                    distance = calculate_distance(
+                        search_lat, search_lng, listing_lat, listing_lng
+                    )
+                    listing.distance = distance
+                    if radius:
+                        radius = float(radius)
+                        if distance <= radius:
+                            processed_listings.append(listing)
+                    else:
+                        processed_listings.append(listing)
+                except ValueError:
+                    listing.distance = None
+                    processed_listings.append(listing)
+        except ValueError:
+            error_messages.append("Invalid coordinates provided")
+            processed_listings = list(all_listings)
+    else:
+        for listing in all_listings:
+            listing.distance = None
+            processed_listings.append(listing)
+
+    if search_lat and search_lng:
+        processed_listings.sort(
+            key=lambda x: x.distance if x.distance is not None else float("inf")
+        )
+
+    for listing in processed_listings:
         try:
             earliest_slot = listing.slots.earliest("start_date", "start_time")
-            latest_slot = listing.slots.latest("end_date", "end_time")
             listing.available_from = earliest_slot.start_date
             listing.available_time_from = earliest_slot.start_time
+            latest_slot = listing.slots.latest("end_date", "end_time")
             listing.available_until = latest_slot.end_date
             listing.available_time_until = latest_slot.end_time
         except listing.slots.model.DoesNotExist:
@@ -459,7 +548,6 @@ def view_listings(request):
             listing.available_time_from = None
             listing.available_until = None
             listing.available_time_until = None
-        processed_listings.append(listing)
 
     page_number = request.GET.get("page", 1)
     paginator = Paginator(processed_listings, 10)
@@ -470,6 +558,9 @@ def view_listings(request):
         "half_hour_choices": HALF_HOUR_CHOICES,
         "filter_type": filter_type,
         "max_price": max_price or "",
+        "search_lat": search_lat,
+        "search_lng": search_lng,
+        "radius": radius,
         "start_date": request.GET.get("start_date", ""),
         "end_date": request.GET.get("end_date", ""),
         "start_time": request.GET.get("start_time", ""),
@@ -487,6 +578,7 @@ def view_listings(request):
         "warning_messages": warning_messages,
         "charger_level_choices": EV_CHARGER_LEVELS,
         "connector_type_choices": EV_CONNECTOR_TYPES,
+        "has_active_filters": has_active_filters(request),
     }
 
     if request.GET.get("ajax") == "1":

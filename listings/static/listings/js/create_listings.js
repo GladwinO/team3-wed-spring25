@@ -16,15 +16,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
   const mapDiv = document.getElementById("map");
   if (!mapDiv) {
-    console.error("Map container not found! Make sure a div with id 'map' exists.");
+    console.error(
+      "Map container not found! Make sure a div with id 'map' exists."
+    );
   } else {
-    // Initialize the map (choose one tile URL; here we use the OpenStreetMap default)
-    map = L.map("map").setView([40.69441, -73.98653], 13); // Default to NYU Tandon
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: "© OpenStreetMap contributors",
-    }).addTo(map);
-    console.log("Map initialized and tiles added.");
+    // Initialize the map with NYC bounds
+    map = initializeNYCMap("map");
+    console.log("NYC-bounded map initialized.");
 
     // Map click handler function
     function onMapClick(e) {
@@ -33,18 +31,28 @@ document.addEventListener("DOMContentLoaded", function () {
         map.removeLayer(marker);
       }
       marker = L.marker(e.latlng).addTo(map);
-      // Reverse geocode with Nominatim
-      fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${e.latlng.lat}&lon=${e.latlng.lng}`)
-        .then((response) => response.json())
-        .then((data) => {
-          const address = data.display_name;
-          updateLocationField(address, e.latlng.lat, e.latlng.lng);
-          marker.bindPopup(address).openPopup();
-        })
-        .catch((error) => {
-          console.error("Geocoding error:", error);
-          updateLocationField("Selected location", e.latlng.lat, e.latlng.lng);
+
+      // Verify the clicked point is within NYC bounds
+      if (isWithinNYC(e.latlng.lat, e.latlng.lng)) {
+        // Reverse geocode with Nominatim
+        reverseGeocode(e.latlng.lat, e.latlng.lng, {
+          onSuccess: (result) => {
+            updateLocationField(result.displayName, e.latlng.lat, e.latlng.lng);
+            marker.bindPopup(result.displayName).openPopup();
+          },
+          onError: (error) => {
+            console.error("Geocoding error:", error);
+            updateLocationField(
+              "Selected location",
+              e.latlng.lat,
+              e.latlng.lng
+            );
+          },
         });
+      } else {
+        map.removeLayer(marker);
+        alert("Please select a location within New York City.");
+      }
     }
     map.on("click", onMapClick);
     console.log("Map click event handler added.");
@@ -75,37 +83,36 @@ document.addEventListener("DOMContentLoaded", function () {
       }
       searchButton.addEventListener("click", (e) => {
         e.preventDefault();
-        searchLocation();
+        performLocationSearch();
       });
       searchInput.addEventListener("keypress", (e) => {
         if (e.key === "Enter") {
           e.preventDefault();
-          searchLocation();
+          performLocationSearch();
         }
       });
     }
-    // Search function using Nominatim
-    function searchLocation() {
+
+    // Search function using Nominatim with NYC bounds
+    function performLocationSearch() {
       console.log("Searching for location");
       const searchInput = document.getElementById("location-search");
       if (!searchInput) return;
       const query = searchInput.value;
-      if (!query) return;
-      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`)
-        .then((response) => response.json())
-        .then((data) => {
-          if (data.length > 0) {
-            const location = data[0];
-            map.setView([location.lat, location.lon], 16);
-            if (marker) {
-              map.removeLayer(marker);
-            }
-            marker = L.marker([location.lat, location.lon]).addTo(map);
-            updateLocationField(location.display_name, location.lat, location.lon);
-            marker.bindPopup(location.display_name).openPopup();
+
+      // Call the global searchLocation function from map_utils.js
+      searchLocation(query, {
+        restrictToNYC: true,
+        onSuccess: (result) => {
+          map.setView([result.lat, result.lng], 16);
+          if (marker) {
+            map.removeLayer(marker);
           }
-        })
-        .catch((error) => console.error("Search error:", error));
+          marker = L.marker([result.lat, result.lng]).addTo(map);
+          updateLocationField(result.displayName, result.lat, result.lng);
+          marker.bindPopup(result.displayName).openPopup();
+        },
+      });
     }
 
     // Load existing location from hidden field if available
@@ -118,9 +125,22 @@ document.addEventListener("DOMContentLoaded", function () {
       if (match) {
         const lat = parseFloat(match[1]);
         const lng = parseFloat(match[2]);
-        map.setView([lat, lng], 16);
-        marker = L.marker([lat, lng]).addTo(map);
-        marker.bindPopup(existingLocation.split("[")[0].trim()).openPopup();
+
+        // Verify the existing location is within NYC bounds
+        if (
+          lat >= NYC_BOUNDS.min_lat &&
+          lat <= NYC_BOUNDS.max_lat &&
+          lng >= NYC_BOUNDS.min_lng &&
+          lng <= NYC_BOUNDS.max_lng
+        ) {
+          map.setView([lat, lng], 16);
+          marker = L.marker([lat, lng]).addTo(map);
+          marker.bindPopup(existingLocation.split("[")[0].trim()).openPopup();
+        } else {
+          console.warn(
+            "Existing location is outside NYC bounds, not displaying marker"
+          );
+        }
       }
     }
 
@@ -143,7 +163,10 @@ document.addEventListener("DOMContentLoaded", function () {
       const timeValue = options[i].value;
       if (!timeValue) continue;
       const [hours, minutes] = timeValue.split(":").map(Number);
-      if (hours < currentHour || (hours === currentHour && minutes <= currentMinute)) {
+      if (
+        hours < currentHour ||
+        (hours === currentHour && minutes <= currentMinute)
+      ) {
         options[i].disabled = true;
         options[i].title = "Cannot select past times";
       } else {
@@ -151,7 +174,11 @@ document.addEventListener("DOMContentLoaded", function () {
         options[i].title = "Available time slot";
       }
     }
-    if (timeSelect.value && timeSelect.selectedIndex > -1 && timeSelect.options[timeSelect.selectedIndex].disabled) {
+    if (
+      timeSelect.value &&
+      timeSelect.selectedIndex > -1 &&
+      timeSelect.options[timeSelect.selectedIndex].disabled
+    ) {
       const formGroup = timeSelect.closest(".mb-3");
       let errorDiv = formGroup.querySelector(".invalid-feedback");
       if (!errorDiv) {
@@ -159,7 +186,8 @@ document.addEventListener("DOMContentLoaded", function () {
         errorDiv.className = "invalid-feedback d-block";
         formGroup.appendChild(errorDiv);
       }
-      errorDiv.textContent = "Selected time is in the past. Please choose a future time.";
+      errorDiv.textContent =
+        "Selected time is in the past. Please choose a future time.";
       timeSelect.classList.add("is-invalid");
       for (let i = 0; i < options.length; i++) {
         if (!options[i].disabled) {
@@ -186,33 +214,41 @@ document.addEventListener("DOMContentLoaded", function () {
     if (selectedDate === today) {
       if (startTimeSelect) {
         filterTimeOptionsForToday(startTimeSelect);
-        const startErrorDiv = startTimeSelect.closest(".mb-3").querySelector(".invalid-feedback");
+        const startErrorDiv = startTimeSelect
+          .closest(".mb-3")
+          .querySelector(".invalid-feedback");
         if (startErrorDiv) startErrorDiv.remove();
         startTimeSelect.classList.remove("is-invalid");
       }
       if (endTimeSelect) {
         filterTimeOptionsForToday(endTimeSelect);
-        const endErrorDiv = endTimeSelect.closest(".mb-3").querySelector(".invalid-feedback");
+        const endErrorDiv = endTimeSelect
+          .closest(".mb-3")
+          .querySelector(".invalid-feedback");
         if (endErrorDiv) endErrorDiv.remove();
         endTimeSelect.classList.remove("is-invalid");
       }
     } else {
       if (startTimeSelect) {
-        Array.from(startTimeSelect.options).forEach(opt => {
+        Array.from(startTimeSelect.options).forEach((opt) => {
           opt.disabled = false;
           opt.title = "";
         });
         startTimeSelect.classList.remove("is-invalid");
-        const startErrorDiv = startTimeSelect.closest(".mb-3").querySelector(".invalid-feedback");
+        const startErrorDiv = startTimeSelect
+          .closest(".mb-3")
+          .querySelector(".invalid-feedback");
         if (startErrorDiv) startErrorDiv.remove();
       }
       if (endTimeSelect) {
-        Array.from(endTimeSelect.options).forEach(opt => {
+        Array.from(endTimeSelect.options).forEach((opt) => {
           opt.disabled = false;
           opt.title = "";
         });
         endTimeSelect.classList.remove("is-invalid");
-        const endErrorDiv = endTimeSelect.closest(".mb-3").querySelector(".invalid-feedback");
+        const endErrorDiv = endTimeSelect
+          .closest(".mb-3")
+          .querySelector(".invalid-feedback");
         if (endErrorDiv) endErrorDiv.remove();
       }
     }
@@ -223,7 +259,10 @@ document.addEventListener("DOMContentLoaded", function () {
     const formDiv = timeSelect.closest(".slot-form");
     if (!formDiv) return;
     const dateInput = formDiv.querySelector('input[type="date"]');
-    if (dateInput && dateInput.value === new Date().toISOString().split("T")[0]) {
+    if (
+      dateInput &&
+      dateInput.value === new Date().toISOString().split("T")[0]
+    ) {
       filterTimeOptionsForToday(timeSelect);
       if (timeSelect.options[timeSelect.selectedIndex].disabled) {
         event.preventDefault();
@@ -268,10 +307,16 @@ document.addEventListener("DOMContentLoaded", function () {
     const forms = document.querySelectorAll(".slot-form");
     const intervals = [];
     for (const formDiv of forms) {
-      const startDateVal = formDiv.querySelector("input[name$='start_date']").value;
+      const startDateVal = formDiv.querySelector(
+        "input[name$='start_date']"
+      ).value;
       const endDateVal = formDiv.querySelector("input[name$='end_date']").value;
-      const startTimeVal = formDiv.querySelector("select[name$='start_time']").value;
-      const endTimeVal = formDiv.querySelector("select[name$='end_time']").value;
+      const startTimeVal = formDiv.querySelector(
+        "select[name$='start_time']"
+      ).value;
+      const endTimeVal = formDiv.querySelector(
+        "select[name$='end_time']"
+      ).value;
       if (startDateVal && startTimeVal && endDateVal && endTimeVal) {
         const start = new Date(startDateVal + "T" + startTimeVal);
         const end = new Date(endDateVal + "T" + endTimeVal);
@@ -297,7 +342,9 @@ document.addEventListener("DOMContentLoaded", function () {
       <div class="slot-form border p-3 mb-3" data-index="${index}">
           <div class="d-flex justify-content-between align-items-center mb-3">
               <h5 class="mb-0">
-                  <i class="fas fa-clock text-secondary me-2"></i>Time Slot ${index + 1}
+                  <i class="fas fa-clock text-secondary me-2"></i>Time Slot ${
+                    index + 1
+                  }
               </h5>
               <button type="button" class="delete-slot" title="Delete this slot">
                   <i class="fas fa-times"></i>
@@ -361,9 +408,11 @@ document.addEventListener("DOMContentLoaded", function () {
       div.setAttribute("data-index", idx.toString());
       const heading = div.querySelector("h5");
       if (heading) {
-        heading.innerHTML = `<i class="fas fa-clock text-secondary me-2"></i>Time Slot ${idx + 1}`;
+        heading.innerHTML = `<i class="fas fa-clock text-secondary me-2"></i>Time Slot ${
+          idx + 1
+        }`;
       }
-      div.querySelectorAll("input, select, label").forEach(el => {
+      div.querySelectorAll("input, select, label").forEach((el) => {
         if (el.name) {
           el.name = el.name.replace(/form-\d+-/, `form-${idx}-`);
         }
@@ -376,37 +425,41 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Attach listeners to date and time inputs for slot forms
   function attachDateListeners() {
-    document.querySelectorAll('input[type="date"]').forEach(dateInput => {
+    document.querySelectorAll('input[type="date"]').forEach((dateInput) => {
       dateInput.addEventListener("change", () => {
         handleDateChange(dateInput);
         validateEndTime(dateInput.closest(".slot-form"));
       });
       handleDateChange(dateInput);
     });
-    document.querySelectorAll('select[name$="start_time"], select[name$="end_time"]').forEach(timeSelect => {
-      timeSelect.addEventListener("change", (event) => {
-        handleTimeChange(timeSelect);
-        validateEndTime(timeSelect.closest(".slot-form"));
-        if (timeSelect.options[timeSelect.selectedIndex].disabled) {
-          event.preventDefault();
-          event.stopPropagation();
-          return false;
-        }
+    document
+      .querySelectorAll('select[name$="start_time"], select[name$="end_time"]')
+      .forEach((timeSelect) => {
+        timeSelect.addEventListener("change", (event) => {
+          handleTimeChange(timeSelect);
+          validateEndTime(timeSelect.closest(".slot-form"));
+          if (timeSelect.options[timeSelect.selectedIndex].disabled) {
+            event.preventDefault();
+            event.stopPropagation();
+            return false;
+          }
+        });
       });
-    });
   }
   attachDateListeners();
 
   // Add submit handler to check overlapping slots
-  document.getElementById("create-listing-form").addEventListener("submit", function (event) {
-    let isValid = true;
-    document.querySelectorAll(".slot-form").forEach(formDiv => {
-      if (!validateEndTime(formDiv)) isValid = false;
+  document
+    .getElementById("create-listing-form")
+    .addEventListener("submit", function (event) {
+      let isValid = true;
+      document.querySelectorAll(".slot-form").forEach((formDiv) => {
+        if (!validateEndTime(formDiv)) isValid = false;
+      });
+      if (!isValid || !checkOverlappingSlots()) {
+        event.preventDefault();
+      }
     });
-    if (!isValid || !checkOverlappingSlots()) {
-      event.preventDefault();
-    }
-  });
 
   // Dynamic form addition for time slots
   const addSlotBtn = document.getElementById("add-slot-btn");
@@ -421,25 +474,31 @@ document.addEventListener("DOMContentLoaded", function () {
     } else {
       // Clone the first form as a blank template.
       const blankForm = formDivs[0].cloneNode(true);
-      blankForm.querySelectorAll("input, select, textarea").forEach(el => el.value = "");
+      blankForm
+        .querySelectorAll("input, select, textarea")
+        .forEach((el) => (el.value = ""));
       const blankHeading = blankForm.querySelector("h5");
       if (blankHeading) blankHeading.textContent = "Time Slot ???";
 
       addSlotBtn.addEventListener("click", function () {
         let formCount = parseInt(totalFormsInput.value);
         let newForm = blankForm.cloneNode(true);
-        newForm.querySelectorAll("input, select, textarea, label").forEach(function (el) {
-          if (el.name) {
-            el.name = el.name.replace(/-\d+-/, `-${formCount}-`);
-          }
-          if (el.id) {
-            el.id = el.id.replace(/_\d+_/, `_${formCount}_`);
-          }
-        });
+        newForm
+          .querySelectorAll("input, select, textarea, label")
+          .forEach(function (el) {
+            if (el.name) {
+              el.name = el.name.replace(/-\d+-/, `-${formCount}-`);
+            }
+            if (el.id) {
+              el.id = el.id.replace(/_\d+_/, `_${formCount}_`);
+            }
+          });
         newForm.setAttribute("data-index", formCount.toString());
         const newHeading = newForm.querySelector("h5");
         if (newHeading) {
-          newHeading.innerHTML = `<i class="fas fa-clock text-secondary me-2"></i>Time Slot ${formCount + 1}`;
+          newHeading.innerHTML = `<i class="fas fa-clock text-secondary me-2"></i>Time Slot ${
+            formCount + 1
+          }`;
         }
         const deleteBtn = document.createElement("button");
         deleteBtn.className = "delete-slot";
@@ -456,13 +515,12 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // Additional delete button listener for any existing delete buttons.
-  document.querySelectorAll(".delete-slot").forEach(btn => {
+  document.querySelectorAll(".delete-slot").forEach((btn) => {
     btn.addEventListener("click", handleDelete);
   });
 
   // Initialize EV charger fields if utility is available
-  if (typeof ListingFormUtils !== 'undefined') {
+  if (typeof ListingFormUtils !== "undefined") {
     ListingFormUtils.initializeEvChargerFields();
   }
-
 }); // End DOMContentLoaded

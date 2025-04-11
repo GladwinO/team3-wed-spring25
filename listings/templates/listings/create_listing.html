@@ -197,6 +197,8 @@
 {% endblock %} {% block scripts %}
 <!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<!-- NYC Map Bounds -->
+<script src="{% static 'listings/js/map_utils.js' %}"></script>
 <script src="{% static 'listings/js/listing-form-shared.js' %}"></script>
 <script src="{% static 'listings/js/create_listings.js' %}"></script>
 {% endblock %}

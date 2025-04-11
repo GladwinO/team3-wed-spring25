@@ -115,3 +115,76 @@ def restore_booking_availability(listing, booking):
             end_date=end_dt.date(),
             end_time=end_dt.time(),
         )
+
+
+def generate_recurring_dates(start_date, pattern, **kwargs):
+    """
+    Generate dates for a recurring booking pattern.
+
+    Args:
+        start_date: The starting date
+        pattern: Either "daily" or "weekly"
+        **kwargs: Additional parameters depending on pattern
+            - For daily: end_date (required)
+            - For weekly: weeks (required)
+
+    Returns:
+        list: List of dates in the pattern
+    """
+    dates = []
+
+    if pattern == "daily":
+        end_date = kwargs.get("end_date")
+        if not end_date:
+            raise ValueError("End date is required for daily pattern")
+
+        days_count = (end_date - start_date).days + 1
+        for day_offset in range(days_count):
+            current_date = start_date + dt.timedelta(days=day_offset)
+            dates.append(current_date)
+
+    elif pattern == "weekly":
+        weeks = kwargs.get("weeks")
+        if not weeks:
+            raise ValueError("Number of weeks is required for weekly pattern")
+
+        for week_offset in range(weeks):
+            current_date = start_date + dt.timedelta(weeks=week_offset)
+            dates.append(current_date)
+
+    else:
+        raise ValueError(f"Unknown pattern: {pattern}")
+
+    return dates
+
+
+def generate_booking_slots(dates, start_time, end_time, is_overnight):
+    """
+    Generate booking slots from a list of dates.
+
+    Args:
+        dates: List of dates to create slots for
+        start_time: The start time for each slot
+        end_time: The end time for each slot
+        is_overnight: Whether these are overnight bookings
+
+    Returns:
+        list: List of dicts with start_date, start_time, end_date, end_time
+    """
+    booking_slots = []
+
+    for date in dates:
+        end_date = date
+        if is_overnight:
+            end_date = date + dt.timedelta(days=1)
+
+        booking_slots.append(
+            {
+                "start_date": date,
+                "start_time": start_time,
+                "end_date": end_date,
+                "end_time": end_time,
+            }
+        )
+
+    return booking_slots

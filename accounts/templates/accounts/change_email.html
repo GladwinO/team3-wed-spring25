@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    {% if is_adding_email %}Add Email{% else %}Change Email{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+      <div class="card shadow-sm border-0">
+        <div class="card-body p-4">
+          <h2 class="text-center mb-4">
+              {% if is_adding_email %}Add Email{% else %}Change Email{% endif %}
+          </h2>
+          
+          <form method="post" class="needs-validation" novalidate>
+            {% csrf_token %}
+            
+            {% if not is_adding_email %}
+            <div class="mb-3">
+              <label for="current_email" class="form-label">Current Email</label>
+              <input type="email" class="form-control bg-light" value="{{ user.email }}" disabled>
+            </div>
+            {% endif %}
+            
+            <div class="mb-4">
+              <label for="id_email" class="form-label">
+                  {% if is_adding_email %}Email Address{% else %}New Email{% endif %}
+              </label>
+              {{ form.email }}
+              {% if form.email.errors %}
+                <div class="text-danger">{{ form.email.errors }}</div>
+              {% endif %}
+            </div>
+            
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-primary flex-grow-1">
+                  {% if is_adding_email %}Add Email{% else %}Update Email{% endif %}
+              </button>
+              <a href="{% url 'profile' %}" class="btn btn-outline-secondary flex-grow-1">Cancel</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

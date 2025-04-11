@@ -3,8 +3,9 @@ import datetime as dt
 from django.contrib.auth.models import User
 from django.db import models
 from django.db.models import Max, Min
+from django.utils import timezone
 
-from .utilities import simplify_location
+from .utils import simplify_location
 
 EV_CHARGER_LEVELS = [
     ("L1", "Level 1 (120V)"),
@@ -57,10 +58,24 @@ class Listing(models.Model):
         Return True if this listing's combined ListingSlot intervals
         cover the entire range [start_dt, end_dt).
         """
+        # Ensure input datetimes are timezone-aware
+        if timezone.is_naive(start_dt):
+            start_dt = timezone.make_aware(start_dt)
+        if timezone.is_naive(end_dt):
+            end_dt = timezone.make_aware(end_dt)
+
         intervals = []
         for slot in self.slots.all():
+            # Create timezone-aware slot datetimes
             slot_start = dt.datetime.combine(slot.start_date, slot.start_time)
             slot_end = dt.datetime.combine(slot.end_date, slot.end_time)
+
+            # Make timezone-aware
+            if timezone.is_naive(slot_start):
+                slot_start = timezone.make_aware(slot_start)
+            if timezone.is_naive(slot_end):
+                slot_end = timezone.make_aware(slot_end)
+
             intervals.append((slot_start, slot_end))
         intervals.sort(key=lambda iv: iv[0])
         merged = []

@@ -2,7 +2,7 @@ import datetime as dt
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from listings.models import Listing, ListingSlot, Review
-from listings.utilities import simplify_location  # used by Listing.location_name
+from ..utils import simplify_location
 
 User = get_user_model()
 
