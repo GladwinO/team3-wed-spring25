@@ -65,6 +65,15 @@
                 <div class="row mb-4">
                     <div class="col-md-4">
                         <div class="mb-3">
+                            <label for="{{ form.parking_spot_size.id_for_label }}" class="form-label">
+                                <i class="fas fa-car-side text-primary me-1"></i> Parking Spot Size
+                            </label>
+                            {{ form.parking_spot_size }}
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="mb-3">
                             <label for="{{ form.has_ev_charger.id_for_label }}" class="form-label">
                                 <i class="fas fa-charging-station text-primary me-1"></i> EV Charger Available
                             </label>

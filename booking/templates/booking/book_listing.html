@@ -24,10 +24,18 @@
     
     <!-- Header with back button -->
     <div class="d-flex align-items-center mb-4">
-        <a href="{% url 'view_listings' %}" class="btn btn-sm btn-outline-secondary me-3">
-            <i class="fas fa-arrow-left me-1"></i> Back
-        </a>
-        <h2 class="mb-0">Book: {{ listing.title }}</h2>
+        {% if request.GET.source == 'user_listings' and request.GET.username %}
+            <a href="{% url 'user_listings' username=request.GET.username %}" class="btn btn-sm btn-outline-secondary me-3">
+                <i class="fas fa-arrow-left me-1"></i> Back
+            </a>
+        {% else %}
+            <a href="{% url 'view_listings' %}" class="btn btn-sm btn-outline-secondary me-3">
+                <i class="fas fa-arrow-left me-1"></i> Back
+            </a>
+        {% endif %}
+        <h2 class="flex-grow-1 text-center mb-0">Book: {{ listing.title }}</h2>
+        <!-- Empty div to balance the layout -->
+        <div style="width: 80px;"></div>
     </div>
 
     <!-- Listing details card -->

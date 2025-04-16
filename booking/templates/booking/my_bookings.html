@@ -1,5 +1,10 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}My Bookings{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'booking/css/my_booking.css' %}">
+{% endblock %}
 
 {% block content %}
 <div class="container mt-5">
@@ -42,15 +47,40 @@
                     <i class="fas fa-tag text-secondary me-2"></i>
                     <span class="fw-bold text-info">${{ booking.total_price }}</span>
                   </p>
+
+                  <!-- Add the badges here -->
+                  <div class="d-flex flex-wrap gap-2 mb-3">
+                    <!-- Parking Spot Size Badge - only show if not standard -->
+                    {% if booking.listing.parking_spot_size != "STANDARD" %}
+                      <span class="badge {% if booking.listing.parking_spot_size == "COMPACT" %}bg-info{% elif booking.listing.parking_spot_size == "OVERSIZE" %}bg-primary{% elif booking.listing.parking_spot_size == "COMMERCIAL" %}bg-danger{% endif %} text-white">
+                        <i class="fas fa-car-side me-1"></i>
+                        {{ booking.listing.get_parking_spot_size_display }}
+                      </span>
+                    {% endif %}
+                    
+                    <!-- EV Charger Badge -->
+                    {% if booking.listing.has_ev_charger %}
+                      <span class="badge bg-warning text-dark">
+                        <i class="fas fa-charging-station me-1"></i>
+                        {{ booking.listing.get_charger_level_display }}
+                        <i class="fas fa-plug mx-1"></i>
+                        {{ booking.listing.get_connector_type_display }}
+                      </span>
+                    {% endif %}
+                  </div>
                   
                   <!-- Owner Contact -->
                   <div class="mb-3">
                     <div class="d-flex align-items-center mb-2">
                       <i class="fas fa-user text-secondary me-2"></i>
-                      <span>Owner: <strong>{{ booking.listing.user.username }}</strong></span>
+                      <span>Owner: 
+                        <a href="{% url 'public_profile' booking.listing.user.username %}" class="owner-link">
+                          <strong>{{ booking.listing.user.username }}</strong>
+                        </a>
+                      </span>
                       <a href="{% url 'compose_message_to' recipient_id=booking.listing.user.id %}" class="btn btn-xs btn-outline-accent btn-sm ms-2">
                         <i class="fas fa-envelope me-1"></i> Message
-                    </a>
+                      </a>
                     </div>
                   </div>
                 </div>

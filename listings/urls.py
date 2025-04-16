@@ -11,4 +11,5 @@ urlpatterns = [
     path("<int:listing_id>/edit/", views.edit_listing, name="edit_listing"),
     path("<int:listing_id>/delete/", views.delete_listing, name="delete_listing"),
     path("reviews/<int:listing_id>/", views.listing_reviews, name="listing_reviews"),
+    path("user/<str:username>/listings/", views.user_listings, name="user_listings"),
 ]

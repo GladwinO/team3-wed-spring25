@@ -2,10 +2,12 @@ from datetime import datetime, time, timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from django.core.paginator import Paginator
 from django.db import models
 from django.forms import inlineformset_factory
 from django.shortcuts import get_object_or_404, redirect, render
+from django.core.exceptions import ObjectDoesNotExist
 
 from .forms import (
     ListingForm,
@@ -13,7 +15,13 @@ from .forms import (
     ListingSlotFormSet,
     validate_non_overlapping_slots,
 )
-from .models import EV_CHARGER_LEVELS, EV_CONNECTOR_TYPES, Listing, ListingSlot
+from .models import (
+    EV_CHARGER_LEVELS,
+    EV_CONNECTOR_TYPES,
+    PARKING_SPOT_SIZES,
+    Listing,
+    ListingSlot,
+)
 from .utils import calculate_distance, extract_coordinates, has_active_filters
 
 # Define an inline formset for editing (extra=0)
@@ -490,6 +498,12 @@ def view_listings(request):
         if connector_type:
             all_listings = all_listings.filter(connector_type=connector_type)
 
+    # Add filter for parking spot size
+    if "parking_spot_size" in request.GET and request.GET["parking_spot_size"]:
+        all_listings = all_listings.filter(
+            parking_spot_size=request.GET["parking_spot_size"]
+        )
+
     if isinstance(all_listings, list):
         all_listings.sort(key=lambda x: x.id, reverse=True)
     else:
@@ -549,8 +563,14 @@ def view_listings(request):
             listing.available_until = None
             listing.available_time_until = None
 
-    page_number = request.GET.get("page", 1)
+    # Process the listings before pagination
+    for listing in processed_listings:
+        # Explicitly mark listings as available in the main listings view
+        listing.user_profile_available = True
+
+    # Continue with pagination
     paginator = Paginator(processed_listings, 10)
+    page_number = request.GET.get("page", 1)
     page_obj = paginator.get_page(page_number)
 
     context = {
@@ -578,7 +598,9 @@ def view_listings(request):
         "warning_messages": warning_messages,
         "charger_level_choices": EV_CHARGER_LEVELS,
         "connector_type_choices": EV_CONNECTOR_TYPES,
+        "parking_spot_sizes": PARKING_SPOT_SIZES,
         "has_active_filters": has_active_filters(request),
+        "is_public_view": False,
     }
 
     if request.GET.get("ajax") == "1":
@@ -628,3 +650,61 @@ def listing_reviews(request, listing_id):
         "listings/listing_reviews.html",
         {"listing": listing, "reviews": reviews},
     )
+
+
+def user_listings(request, username):
+    # Get the host user
+    host = get_object_or_404(User, username=username)
+
+    # Check if the host is verified
+    try:
+        profile = host.profile  # Assuming you have a profile model related to User
+        is_verified = profile.is_verified
+    except (AttributeError, ObjectDoesNotExist):  # ← Specific exceptions
+        is_verified = False
+
+    # Redirect or show error if host is not verified
+    if not is_verified:
+        messages.error(request, "This user is not a verified host.")
+        return redirect("home")  # Or another appropriate page
+
+    # Continue with the existing code for verified hosts
+    current_datetime = datetime.now()
+
+    # Get all listings from this user
+    listings = Listing.objects.filter(user=host).distinct()
+
+    # Create two separate lists - available and unavailable
+    available_listings = []
+    unavailable_listings = []
+
+    for listing in listings:
+        is_available = listing.slots.filter(
+            models.Q(end_date__gt=current_datetime.date())
+            | models.Q(
+                end_date=current_datetime.date(), end_time__gt=current_datetime.time()
+            )
+        ).exists()
+
+        listing.user_profile_available = is_available
+
+        if is_available:
+            available_listings.append(listing)
+        else:
+            unavailable_listings.append(listing)
+
+    # Sort each list by creation date (newest first)
+    available_listings.sort(key=lambda x: -x.created_at.timestamp())
+    unavailable_listings.sort(key=lambda x: -x.created_at.timestamp())
+
+    # Combine the lists - available first, then unavailable
+    sorted_listings = available_listings + unavailable_listings
+
+    context = {
+        "listings": sorted_listings,
+        "host": host,
+        "is_public_view": True,
+        "source": "user_listings",
+        "username": username,
+    }
+    return render(request, "listings/user_listings.html", context)

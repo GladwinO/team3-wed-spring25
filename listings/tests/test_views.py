@@ -84,6 +84,7 @@ class CreateListingViewTest(TestCase):
             "has_ev_charger": False,
             "charger_level": "",
             "connector_type": "",
+            "parking_spot_size": "STANDARD",
         }
         slot_data = {
             "form-0-start_date": "2025-05-01",
@@ -114,6 +115,7 @@ class CreateListingViewTest(TestCase):
             "has_ev_charger": False,
             "charger_level": "",
             "connector_type": "",
+            "parking_spot_size": "STANDARD",
         }
         post_data = {**listing_data, **build_slot_formset_data(prefix="form", count=1)}
         response = self.client.post(self.create_url, post_data)
@@ -130,6 +132,7 @@ class CreateListingViewTest(TestCase):
             "has_ev_charger": False,
             "charger_level": "",
             "connector_type": "",
+            "parking_spot_size": "STANDARD",
         }
         # Two slots that overlap.
         slot_data = {
@@ -168,6 +171,7 @@ class EditListingViewTest(TestCase):
             rent_per_hour=Decimal("10.00"),
             description="Editable",
             has_ev_charger=False,
+            parking_spot_size="STANDARD",
         )
         self.original_slot = ListingSlot.objects.create(
             listing=self.listing,
@@ -219,6 +223,7 @@ class EditListingViewTest(TestCase):
             "has_ev_charger": False,
             "charger_level": "",
             "connector_type": "",
+            "parking_spot_size": "STANDARD",
         }
         slot_data = {
             "form-0-id": str(self.original_slot.id),
@@ -249,6 +254,7 @@ class EditListingViewTest(TestCase):
             "has_ev_charger": False,
             "charger_level": "",
             "connector_type": "",
+            "parking_spot_size": "STANDARD",
         }
         slot_data = {
             "form-TOTAL_FORMS": "2",
@@ -286,6 +292,7 @@ class EditListingViewTest(TestCase):
             "has_ev_charger": False,
             "charger_level": "",
             "connector_type": "",
+            "parking_spot_size": "STANDARD",
         }
         slot_data = self._build_edit_slot_data(prefix="form", count=1)
         post_data = {**listing_data, **slot_data}
@@ -324,6 +331,7 @@ class EditListingViewTest(TestCase):
             "has_ev_charger": False,
             "charger_level": "",
             "connector_type": "",
+            "parking_spot_size": "STANDARD",
         }
         slot_data = {
             "form-TOTAL_FORMS": "1",
@@ -384,6 +392,7 @@ class ListingsFilterTest(TestCase):
             location="Future Location",
             rent_per_hour=10.00,
             description="Should be included",
+            parking_spot_size="STANDARD",
         )
         ListingSlot.objects.create(
             listing=self.future_listing,
@@ -399,6 +408,7 @@ class ListingsFilterTest(TestCase):
             location="Today Location",
             rent_per_hour=10.00,
             description="Should be included",
+            parking_spot_size="STANDARD",
         )
         ListingSlot.objects.create(
             listing=self.today_future,
@@ -414,6 +424,7 @@ class ListingsFilterTest(TestCase):
             location="Past Location",
             rent_per_hour=10.00,
             description="Should be excluded",
+            parking_spot_size="STANDARD",
         )
         ListingSlot.objects.create(
             listing=self.today_past,
@@ -446,6 +457,7 @@ class ListingsFilterTest(TestCase):
             location="999 Rich St",
             rent_per_hour=50.00,
             description="Expensive",
+            parking_spot_size="STANDARD",
         )
         url = reverse("view_listings")
         response = self.client.get(url, {"max_price": "20"})
@@ -482,6 +494,7 @@ class ListingsFilterTest(TestCase):
             location="Multi Location",
             rent_per_hour=15.00,
             description="Multiple intervals",
+            parking_spot_size="STANDARD",
         )
         ListingSlot.objects.create(
             listing=multi_listing,
@@ -611,8 +624,9 @@ class ListingsFilterTest(TestCase):
             description="Available daily",
             has_ev_charger=False,
         )
-        start_date_slot = datetime.strptime("2025-04-10", "%Y-%m-%d").date()
-        end_date_slot = datetime.strptime("2025-04-20", "%Y-%m-%d").date()
+        # make start_date_slot now
+        start_date_slot = datetime.now().date()
+        end_date_slot = start_date_slot + timedelta(days=10)
         ListingSlot.objects.create(
             listing=valid_listing,
             start_date=start_date_slot,
@@ -620,12 +634,17 @@ class ListingsFilterTest(TestCase):
             end_date=end_date_slot,
             end_time="20:00",
         )
+        recurring_start_date = (start_date_slot + timedelta(days=2)).strftime(
+            "%Y-%m-%d"
+        )
+        recurring_end_date = (start_date_slot + timedelta(days=4)).strftime("%Y-%m-%d")
+
         url = reverse("view_listings")
         params = {
             "filter_type": "recurring",
             "recurring_pattern": "daily",
-            "recurring_start_date": "2025-04-12",
-            "recurring_end_date": "2025-04-14",
+            "recurring_start_date": recurring_start_date,
+            "recurring_end_date": recurring_end_date,
             "recurring_start_time": "09:00",
             "recurring_end_time": "10:00",
         }
@@ -643,6 +662,7 @@ class ListingsFilterTest(TestCase):
             rent_per_hour=25.00,
             description="Available weekly",
             has_ev_charger=False,
+            parking_spot_size="STANDARD",
         )
         start_date = datetime.strptime("2025-04-14", "%Y-%m-%d").date()  # Monday
         for week_offset in range(3):
@@ -683,6 +703,7 @@ class ManageListingsTest(TestCase):
             location="Loc 1",
             rent_per_hour=10.00,
             description="Desc 1",
+            parking_spot_size="STANDARD",
         )
         self.listing2 = Listing.objects.create(
             user=self.owner,
@@ -690,6 +711,7 @@ class ManageListingsTest(TestCase):
             location="Loc 2",
             rent_per_hour=12.00,
             description="Desc 2",
+            parking_spot_size="STANDARD",
         )
         Booking.objects.create(
             user=self.owner,
@@ -728,6 +750,7 @@ class ListingOwnerBookingTest(TestCase):
             rent_per_hour=10.00,
             description="Owner description",
             has_ev_charger=False,
+            parking_spot_size="STANDARD",
         )
         ListingSlot.objects.create(
             listing=self.listing,
@@ -743,7 +766,7 @@ class ListingOwnerBookingTest(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Your listing")
-        self.assertContains(response, 'class="badge bg-secondary"')
+        self.assertContains(response, 'class="badge bg-secondary outline-badge"')
         book_url = reverse("book_listing", args=[self.listing.id])
         self.assertNotContains(response, f'href="{book_url}"')
         self.assertNotContains(response, "Book Now")
@@ -754,8 +777,13 @@ class ListingOwnerBookingTest(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "Your listing")
-        book_url = reverse("book_listing", args=[self.listing.id])
-        self.assertContains(response, f'href="{book_url}"')
+
+        # Use a partial URL match instead of exact URL match
+        book_url_base = reverse("book_listing", args=[self.listing.id])
+        self.assertContains(
+            response, f'href="{book_url_base}'
+        )  # Note: removed closing quote
+
         self.assertContains(response, 'class="btn btn-primary')
         self.assertContains(response, "Book Now")
 
@@ -772,6 +800,7 @@ class EVChargerViewTest(TestCase):
             rent_per_hour=Decimal("10.00"),
             description="No EV charger",
             has_ev_charger=False,
+            parking_spot_size="STANDARD",
         )
         self.l2 = Listing.objects.create(
             user=self.user,
@@ -782,6 +811,7 @@ class EVChargerViewTest(TestCase):
             has_ev_charger=True,
             charger_level="L2",
             connector_type="J1772",
+            parking_spot_size="STANDARD",
         )
         self.l3 = Listing.objects.create(
             user=self.user,
@@ -792,6 +822,7 @@ class EVChargerViewTest(TestCase):
             has_ev_charger=True,
             charger_level="L3",
             connector_type="TESLA",
+            parking_spot_size="STANDARD",
         )
         tomorrow = (datetime.now() + timedelta(days=1)).date()
         for listing in [self.non_ev, self.l2, self.l3]:
@@ -842,6 +873,7 @@ class EVChargerViewTest(TestCase):
             has_ev_charger=True,
             charger_level="L3",
             connector_type="J1772",
+            parking_spot_size="STANDARD",
         )
         tomorrow = (datetime.now() + timedelta(days=1)).date()
         ListingSlot.objects.create(
@@ -884,6 +916,7 @@ class LocationSearchTests(TestCase):
             location="[40.7128,-74.0060]",  # New York City coordinates
             rent_per_hour=Decimal("25.00"),
             description="Parking in NYC",
+            parking_spot_size="STANDARD",
         )
 
         self.listing2 = Listing.objects.create(
@@ -892,6 +925,7 @@ class LocationSearchTests(TestCase):
             location="[42.3601,-71.0589]",  # Boston coordinates
             rent_per_hour=Decimal("20.00"),
             description="Parking in Boston",
+            parking_spot_size="STANDARD",
         )
 
         self.listing3 = Listing.objects.create(
@@ -900,6 +934,7 @@ class LocationSearchTests(TestCase):
             location="invalid",
             rent_per_hour=Decimal("15.00"),
             description="Invalid location",
+            parking_spot_size="STANDARD",
         )
 
         # Add slots to make listings appear in searches
@@ -1029,6 +1064,7 @@ class DeleteListingViewTest(TestCase):
             rent_per_hour=Decimal("10.00"),
             description="To be deleted",
             has_ev_charger=False,
+            parking_spot_size="STANDARD",
         )
         self.delete_url = reverse("delete_listing", args=[self.listing.id])
 
@@ -1068,6 +1104,7 @@ class ListingReviewsViewTest(TestCase):
             rent_per_hour=Decimal("10.00"),
             description="Review test",
             has_ev_charger=False,
+            parking_spot_size="STANDARD",
         )
         from booking.models import Booking
 
@@ -1109,6 +1146,7 @@ class ViewListingsContextTest(TestCase):
             rent_per_hour=Decimal("10.00"),
             description="Test context",
             has_ev_charger=False,
+            parking_spot_size="STANDARD",
         )
         ListingSlot.objects.create(
             listing=self.listing,
@@ -1133,6 +1171,109 @@ class ViewListingsContextTest(TestCase):
         response = self.client.get(self.view_url, {"ajax": "1"})
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "listings/partials/listing_cards.html")
+
+
+class SpotSizeFilterTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username="spotuser", password="pass")
+        self.client.login(username="spotuser", password="pass")
+
+        # Create listings with different spot sizes
+        self.standard_listing = Listing.objects.create(
+            user=self.user,
+            title="Standard Spot",
+            location="Standard Location",
+            rent_per_hour=10.00,
+            description="Standard size spot",
+            parking_spot_size="STANDARD",
+        )
+
+        self.compact_listing = Listing.objects.create(
+            user=self.user,
+            title="Compact Spot",
+            location="Compact Location",
+            rent_per_hour=8.00,
+            description="Compact size spot",
+            parking_spot_size="COMPACT",
+        )
+
+        self.oversize_listing = Listing.objects.create(
+            user=self.user,
+            title="Oversize Spot",
+            location="Oversize Location",
+            rent_per_hour=15.00,
+            description="Oversize spot",
+            parking_spot_size="OVERSIZE",
+        )
+
+        self.commercial_listing = Listing.objects.create(
+            user=self.user,
+            title="Commercial Spot",
+            location="Commercial Location",
+            rent_per_hour=20.00,
+            description="Commercial spot",
+            parking_spot_size="COMMERCIAL",
+        )
+
+        # Add slots to make listings appear in searches
+        tomorrow = (datetime.now() + timedelta(days=1)).date()
+        for listing in [
+            self.standard_listing,
+            self.compact_listing,
+            self.oversize_listing,
+            self.commercial_listing,
+        ]:
+            ListingSlot.objects.create(
+                listing=listing,
+                start_date=tomorrow,
+                start_time="09:00",
+                end_date=tomorrow,
+                end_time="17:00",
+            )
+
+    def test_filter_by_parking_spot_size(self):
+        """Test filtering listings by parking spot size"""
+        # Test compact filter
+        response = self.client.get(
+            reverse("view_listings"), {"parking_spot_size": "COMPACT"}
+        )
+        listings = response.context["listings"]
+        self.assertEqual(len(listings), 1)
+        self.assertEqual(listings[0].id, self.compact_listing.id)
+
+        # Test commercial filter
+        response = self.client.get(
+            reverse("view_listings"), {"parking_spot_size": "COMMERCIAL"}
+        )
+        listings = response.context["listings"]
+        self.assertEqual(len(listings), 1)
+        self.assertEqual(listings[0].id, self.commercial_listing.id)
+
+        # Test standard filter
+        response = self.client.get(
+            reverse("view_listings"), {"parking_spot_size": "STANDARD"}
+        )
+        listings = response.context["listings"]
+        self.assertEqual(len(listings), 1)
+        self.assertEqual(listings[0].id, self.standard_listing.id)
+
+    def test_spot_size_display_in_template(self):
+        """Test that parking spot size badges appear correctly in templates"""
+        response = self.client.get(reverse("view_listings"))
+
+        # Test that Standard Size spots don't get badges (more specific test)
+        self.assertNotContains(response, "Standard Size</span>")
+
+        # Test that we DO see badges for non-standard sizes with correct colors
+        self.assertContains(response, "bg-info")  # Compact badge color
+        self.assertContains(response, "Compact")  # Compact text
+
+        self.assertContains(response, "bg-primary")  # Oversize badge color
+        self.assertContains(response, "Large/Oversize")  # Oversize text
+
+        self.assertContains(response, "bg-danger")  # Commercial badge color
+        self.assertContains(response, "Truck/Commercial")  # Commercial text
 
 
 #############################

@@ -228,6 +228,30 @@
         </div>
       </div>
       
+      <!-- Parking Spot Size Filter -->
+      <div class="row g-3 mb-4">
+        <div class="col-md-12">
+          <label class="form-label">
+            <i class="fas fa-car-side me-1"></i> Parking Spot Size
+            <button type="button" class="btn btn-link text-secondary p-0 ms-1" 
+                    data-bs-toggle="popover" 
+                    data-bs-placement="top"
+                    data-bs-html="true"
+                    data-bs-trigger="hover focus"
+                    title="Spot Size Help"
+                    data-bs-content="Filter by the size of parking spot you need for your vehicle.">
+              <i class="fas fa-info-circle small"></i>
+            </button>
+          </label>
+          <select class="form-select" name="parking_spot_size">
+            <option value="">Any Size</option>
+            {% for value, label in parking_spot_sizes %}
+              <option value="{{ value }}" {% if request.GET.parking_spot_size == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
       <!-- EV charger options -->
       <div class="row g-3 mb-4">
         <!-- Charger Level -->

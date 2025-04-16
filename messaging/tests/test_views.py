@@ -2,7 +2,8 @@ from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth.models import User
 from messaging.models import Message
-from messaging.forms import MessageForm
+from listings.models import Listing
+from booking.models import Booking
 
 
 class MessagingViewsTest(TestCase):
@@ -68,35 +69,6 @@ class MessagingViewsTest(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertTrue(response.url.startswith("/accounts/login/"))
 
-    def test_compose_message_get(self):
-        """Test accessing the compose message page"""
-        self.client.login(username="testuser1", password="testpassword1")
-        response = self.client.get(reverse("compose_message"))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "messaging/compose_message.html")
-        self.assertIsInstance(response.context["form"], MessageForm)
-
-    def test_compose_message_post(self):
-        """Test submitting a new message"""
-        self.client.login(username="testuser1", password="testpassword1")
-
-        data = {
-            "recipient": self.user2.id,
-            "subject": "New Test Subject",
-            "body": "New Test body",
-        }
-        response = self.client.post(reverse("compose_message"), data)
-
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("inbox"))
-
-        self.assertTrue(
-            Message.objects.filter(
-                sender=self.user1, recipient=self.user2, subject="New Test Subject"
-            ).exists()
-        )
-
     def test_message_detail_as_recipient(self):
         """Test viewing message details as recipient"""
         self.client.login(username="testuser2", password="testpassword2")
@@ -149,3 +121,208 @@ class MessagingViewsTest(TestCase):
 
         self.assertEqual(response.status_code, 403)
         self.assertTrue(Message.objects.filter(id=self.message1.id).exists())
+
+
+class ComposeMessagingTests(TestCase):
+    def setUp(self):
+        """Create test users, listings and relationships"""
+        # Create users
+        self.owner = User.objects.create_user(
+            username="spotowner", email="owner@test.com", password="ownerpass"
+        )
+        self.renter = User.objects.create_user(
+            username="renter", email="renter@test.com", password="renterpass"
+        )
+        self.unrelated_user = User.objects.create_user(
+            username="stranger", email="stranger@test.com", password="strangerpass"
+        )
+        self.admin_user = User.objects.create_user(
+            username="admin",
+            email="admin@test.com",
+            password="adminpass",
+            is_staff=True,
+        )
+
+        # Create a listing for the owner
+        self.listing = Listing.objects.create(
+            user=self.owner,
+            title="Test Parking Spot",
+            location="123 Test St",
+            rent_per_hour=10.0,
+            description="Test description",
+        )
+
+    def test_no_listings_or_bookings(self):
+        """Test when user has no listings or bookings they can't message anyone"""
+        self.client.login(username="stranger", password="strangerpass")
+
+        # Try to access compose page
+        response = self.client.get(reverse("compose_message"))
+
+        # Should redirect to inbox
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("inbox"))
+        self.assertEqual(
+            response.wsgi_request.session["error_message"],
+            """You don't have any users to message yet. You need to either book
+            a listing or have someone book your listing first.""",
+        )
+
+    def test_has_listing_no_bookings(self):
+        """Test when user has a listing but no bookings they can't message anyone"""
+        self.client.login(username="spotowner", password="ownerpass")
+
+        response = self.client.get(reverse("compose_message"))
+
+        # Should redirect to inbox
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("inbox"))
+        self.assertEqual(
+            response.wsgi_request.session["error_message"],
+            """You don't have any users to message yet. You need to either book
+            a listing or have someone book your listing first.""",
+        )
+
+    def test_renter_can_message_owner(self):
+        """Test when user has made a booking they can message the owner"""
+        # Create a booking
+        Booking.objects.create(
+            user=self.renter,
+            listing=self.listing,
+            email="renter@test.com",
+            status="APPROVED",
+        )
+
+        self.client.login(username="renter", password="renterpass")
+        response = self.client.get(reverse("compose_message"))
+
+        # Should access page
+        self.assertEqual(response.status_code, 200)
+
+        # Owner should be in available recipients
+        self.assertIn(
+            self.owner.id,
+            [user.id for user in response.context["available_recipients"]],
+        )
+
+        # Test sending a message
+        data = {
+            "recipient": self.owner.id,
+            "subject": "Question about spot",
+            "body": "Is parking available next week?",
+        }
+        response = self.client.post(reverse("compose_message"), data)
+
+        # Should succeed
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            Message.objects.filter(sender=self.renter, recipient=self.owner).exists()
+        )
+        self.assertEqual(
+            response.wsgi_request.session["success_message"],
+            "Message sent successfully!",
+        )
+
+    def test_owner_can_message_renter(self):
+        """Test when someone has booked your listing you can message them"""
+        # Create a booking
+        Booking.objects.create(
+            user=self.renter,
+            listing=self.listing,
+            email="renter@test.com",
+            status="APPROVED",
+        )
+
+        self.client.login(username="spotowner", password="ownerpass")
+        response = self.client.get(reverse("compose_message"))
+
+        # Should access page
+        self.assertEqual(response.status_code, 200)
+
+        # Renter should be in available recipients
+        self.assertIn(
+            self.renter.id,
+            [user.id for user in response.context["available_recipients"]],
+        )
+
+        # Test sending a message
+        data = {
+            "recipient": self.renter.id,
+            "subject": "Booking Confirmation",
+            "body": "Your booking is confirmed!",
+        }
+
+        response = self.client.post(reverse("compose_message"), data)
+
+        # Should succeed
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            Message.objects.filter(sender=self.owner, recipient=self.renter).exists()
+        )
+        self.assertEqual(
+            response.wsgi_request.session["success_message"],
+            "Message sent successfully!",
+        )
+
+    def test_messaging_unauthorized_user(self):
+        """Test trying to message a user you're not connected with"""
+        # Create a booking to enable messaging for renter
+        Booking.objects.create(
+            user=self.renter,
+            listing=self.listing,
+            email="renter@test.com",
+            status="APPROVED",
+        )
+
+        self.client.login(username="renter", password="renterpass")
+
+        # Try to compose to unrelated user
+        response = self.client.get(
+            reverse("compose_message_to", args=[self.unrelated_user.id])
+        )
+
+        # Should redirect with error
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("inbox"))
+        self.assertEqual(
+            response.wsgi_request.session["error_message"],
+            "You cannot message this user as you haven't had any booking interactions.",
+        )
+
+    def test_messaging_admin_user(self):
+        """Test users can message admin users regardless of relationship"""
+        self.client.login(username="stranger", password="strangerpass")
+
+        # Stranger with no relationships should still be able to message admin
+        response = self.client.get(
+            reverse("compose_message_to", args=[self.admin_user.id])
+        )
+
+        # Should allow access
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["form"].initial["recipient"], self.admin_user)
+
+    def test_form_security(self):
+        """Test form validation prevents messaging unauthorized users"""
+        # Create a booking
+        Booking.objects.create(
+            user=self.renter,
+            listing=self.listing,
+            email="renter@test.com",
+            status="APPROVED",
+        )
+
+        self.client.login(username="renter", password="renterpass")
+
+        # Try to send message to unauthorized user via POST
+        data = {
+            "recipient": self.unrelated_user.id,
+            "subject": "Unauthorized message",
+            "body": "This should fail",
+        }
+
+        response = self.client.post(reverse("compose_message"), data)
+
+        # Should stay on form with error
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Message.objects.filter(recipient=self.unrelated_user).exists())

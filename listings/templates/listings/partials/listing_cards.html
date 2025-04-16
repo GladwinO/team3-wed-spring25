@@ -15,13 +15,19 @@
           <div class="d-flex align-items-center mb-2">
             <h3 class="card-title fw-bold mb-0 me-2">{{ listing.title }}</h3>
             {% if user == listing.user %}
-            <span class="badge bg-secondary"
-              ><i class="fas fa-user-check me-1"></i> Your listing</span
-            >
+            <!-- For own listings: link to personal profile -->
+            <a href="{% url 'profile' %}" class="text-decoration-none">
+              <span class="badge bg-secondary outline-badge">
+                <i class="fas fa-user-check me-1"></i> Your listing
+              </span>
+            </a>
             {% else %}
-            <span class="badge bg-light text-dark border"
-              ><i class="fas fa-user me-1"></i> {{ listing.user.username}}</span
-            >
+            <!-- For others' listings: link to public profile -->
+            <a href="{% url 'public_profile' listing.user.username %}" class="text-decoration-none">
+              <span class="badge bg-light text-dark border outline-badge">
+                <i class="fas fa-user me-1"></i> {{ listing.user.username }}
+              </span>
+            </a>
             {% endif %}
           </div>
 
@@ -44,16 +50,27 @@
               <i class="fas fa-route text-secondary me-2"></i>
               {{ listing.distance|floatformat:1 }} km away
             </p>
-            {% endif %} {% if listing.has_ev_charger %}
-            <div class="mt-2">
-              <span class="badge bg-warning text-dark">
-                <i class="fas fa-charging-station me-1"></i>
-                {{ listing.get_charger_level_display }}
-                <i class="fas fa-plug mx-1"></i>
-                {{ listing.get_connector_type_display }}
-              </span>
+            {% endif %} 
+            
+            <div class="mt-2 d-flex flex-wrap gap-2">
+              <!-- Parking Spot Size Badge - only show if not standard -->
+              {% if listing.parking_spot_size != "STANDARD" %}
+                <span class="badge {% if listing.parking_spot_size == "COMPACT" %}bg-info{% elif listing.parking_spot_size == "OVERSIZE" %}bg-primary{% elif listing.parking_spot_size == "COMMERCIAL" %}bg-danger{% endif %} text-white">
+                  <i class="fas fa-car-side me-1"></i>
+                  {{ listing.get_parking_spot_size_display }}
+                </span>
+              {% endif %}
+              
+              <!-- Keep the existing EV charger badge -->
+              {% if listing.has_ev_charger %}
+                <span class="badge bg-warning text-dark">
+                  <i class="fas fa-charging-station me-1"></i>
+                  {{ listing.get_charger_level_display }}
+                  <i class="fas fa-plug mx-1"></i>
+                  {{ listing.get_connector_type_display }}
+                </span>
+              {% endif %}
             </div>
-            {% endif %}
           </div>
         </div>
 
@@ -90,29 +107,25 @@
             <!-- User Info and Buttons -->
             <div>
               {% if user != listing.user %}
-              <div class="d-grid gap-2">
-                <a
-                  href="{% url 'book_listing' listing.id %}"
-                  class="btn btn-primary btn-sm"
-                >
-                  <i class="fas fa-calendar-check me-1"></i> Book Now
-                </a>
-                <a
-                  href="{% url 'listing_reviews' listing.id %}"
-                  class="btn btn-secondary btn-sm"
-                >
-                  <i class="fas fa-comment me-1"></i> Reviews
-                </a>
-              </div>
+                <div class="d-grid gap-2">
+                  {% if not is_public_view or listing.user_profile_available %}
+                    <!-- Regular "Book Now" button -->
+                    <a href="{% url 'book_listing' listing.id %}?source={% if source %}{{ source }}{% else %}view_listings{% endif %}&username={% if username %}{{ username }}{% endif %}" class="btn btn-primary btn-sm">
+                      <i class="fas fa-calendar-check me-1"></i> Book Now
+                    </a>
+                  {% elif is_public_view %}
+                    <!-- "No Longer Available" message (only in public_view) -->
+                    <div class="alert alert-secondary py-2 mb-0 text-center">
+                      <i class="fas fa-ban me-1"></i> No Longer Available
+                    </div>
+                  {% endif %}
+                  
+                  <a href="{% url 'listing_reviews' listing.id %}" class="btn btn-secondary btn-sm">
+                    <i class="fas fa-comment me-1"></i> Reviews
+                  </a>
+                </div>
               {% else %}
-              <div class="d-grid">
-                <a
-                  href="{% url 'listing_reviews' listing.id %}"
-                  class="btn btn-secondary btn-sm"
-                >
-                  <i class="fas fa-comment me-1"></i> Reviews
-                </a>
-              </div>
+                <!-- Owner view stays the same -->
               {% endif %}
             </div>
           </div>

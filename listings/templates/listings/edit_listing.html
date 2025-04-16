@@ -68,6 +68,20 @@
             </div>
 
             <div class="row mb-4">
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="{{ form.parking_spot_size.id_for_label }}" class="form-label">
+                    <i class="fas fa-car-side text-primary me-1"></i> Parking Spot Size
+                  </label>
+                  {{ form.parking_spot_size|add_class:"form-select" }}
+                  {% if form.parking_spot_size.errors %}
+                    <div class="text-danger small mt-1">{{ form.parking_spot_size.errors }}</div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+
+            <div class="row mb-4">
               <div class="col-md-4">
                 <div class="mb-3">
                   <label for="{{ form.has_ev_charger.id_for_label }}" class="form-label">

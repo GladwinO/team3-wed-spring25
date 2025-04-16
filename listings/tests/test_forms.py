@@ -24,6 +24,7 @@ class ListingFormTests(TestCase):
             "has_ev_charger": False,
             "charger_level": "L2",
             "connector_type": "J1772",
+            "parking_spot_size": "STANDARD",
         }
 
     def test_new_listing_form_valid(self):
@@ -64,6 +65,24 @@ class ListingFormTests(TestCase):
         self.assertEqual(listing.charger_level, "")
         self.assertEqual(listing.connector_type, "")
 
+    def test_valid_parking_spot_sizes(self):
+        """Test that different valid parking spot sizes are accepted"""
+        valid_sizes = ["STANDARD", "COMPACT", "OVERSIZE", "COMMERCIAL"]
+
+        for size in valid_sizes:
+            data = self.valid_data.copy()
+            data["parking_spot_size"] = size
+            form = ListingForm(data=data)
+            self.assertTrue(form.is_valid(), f"Form should be valid with size {size}")
+
+    def test_invalid_parking_spot_size(self):
+        """Test that invalid parking spot sizes are rejected"""
+        data = self.valid_data.copy()
+        data["parking_spot_size"] = "INVALID_SIZE"
+        form = ListingForm(data=data)
+        self.assertFalse(form.is_valid())
+        self.assertIn("parking_spot_size", form.errors)
+
 
 class ListingSlotFormTests(TestCase):
     def setUp(self):
@@ -75,6 +94,7 @@ class ListingSlotFormTests(TestCase):
             rent_per_hour="15.00",
             description="Test slot form",
             has_ev_charger=False,
+            parking_spot_size="STANDARD",
         )
         # Use a future date so that the "start time not in past" rule is not triggered by default.
         self.future_date = date.today() + timedelta(days=1)

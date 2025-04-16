@@ -48,6 +48,26 @@
                             <span>${{ listing.rent_per_hour }}/hour</span>
                         </p>
                         
+                        <div class="d-flex flex-wrap gap-2 mb-3">
+                            <!-- Parking Spot Size Badge - only show if not standard -->
+                            {% if listing.parking_spot_size != "STANDARD" %}
+                                <span class="badge {% if listing.parking_spot_size == "COMPACT" %}bg-info{% elif listing.parking_spot_size == "OVERSIZE" %}bg-primary{% elif listing.parking_spot_size == "COMMERCIAL" %}bg-danger{% endif %} text-white">
+                                    <i class="fas fa-car-side me-1"></i>
+                                    {{ listing.get_parking_spot_size_display }}
+                                </span>
+                            {% endif %}
+                            
+                            <!-- EV Charger Badge -->
+                            {% if listing.has_ev_charger %}
+                                <span class="badge bg-warning text-dark">
+                                    <i class="fas fa-charging-station me-1"></i>
+                                    {{ listing.get_charger_level_display }}
+                                    <i class="fas fa-plug mx-1"></i>
+                                    {{ listing.get_connector_type_display }}
+                                </span>
+                            {% endif %}
+                        </div>
+                        
                         <div class="mb-3">
                             <p class="d-flex align-items-center mb-2">
                                 <i class="fas fa-align-left text-secondary me-2"></i>

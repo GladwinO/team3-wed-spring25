@@ -1,7 +1,12 @@
 from django import forms
 from django.forms import inlineformset_factory
 from datetime import datetime
-from .models import Listing, ListingSlot, Review
+from .models import (
+    Listing,
+    ListingSlot,
+    Review,
+    PARKING_SPOT_SIZES,
+)  # Import the constant
 
 HALF_HOUR_CHOICES = [
     (f"{hour:02d}:{minute:02d}", f"{hour:02d}:{minute:02d}")
@@ -12,6 +17,14 @@ HALF_HOUR_CHOICES = [
 
 # 1. ListingForm: For basic listing details.
 class ListingForm(forms.ModelForm):
+    # Add a nicely formatted choice field for parking spot size
+    parking_spot_size = forms.ChoiceField(
+        choices=PARKING_SPOT_SIZES,
+        initial="STANDARD",
+        widget=forms.Select(attrs={"class": "form-select"}),
+        help_text="Select the type of vehicle your parking spot can accommodate",
+    )
+
     class Meta:
         model = Listing
         fields = [
@@ -19,6 +32,7 @@ class ListingForm(forms.ModelForm):
             "location",
             "rent_per_hour",
             "description",
+            "parking_spot_size",  # Add the new field
             "has_ev_charger",
             "charger_level",
             "connector_type",
@@ -44,10 +58,15 @@ class ListingForm(forms.ModelForm):
                 "class"
             ] = "ev-charger-option form-select"
 
-            # If initial has_ev_charger is False, disable the other fields
+            # Don't disable fields - just visually disable them
+            # This ensures their values are preserved when submitted
             if not self.initial.get("has_ev_charger", False):
-                self.fields["charger_level"].widget.attrs["disabled"] = "disabled"
-                self.fields["connector_type"].widget.attrs["disabled"] = "disabled"
+                self.fields["charger_level"].widget.attrs[
+                    "style"
+                ] = "opacity: 0.6; pointer-events: none;"
+                self.fields["connector_type"].widget.attrs[
+                    "style"
+                ] = "opacity: 0.6; pointer-events: none;"
 
     def clean(self):
         cleaned_data = super().clean()

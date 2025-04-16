@@ -22,6 +22,13 @@ EV_CONNECTOR_TYPES = [
     ("OTHER", "Other"),
 ]
 
+PARKING_SPOT_SIZES = [
+    ("STANDARD", "Standard Size"),
+    ("COMPACT", "Compact"),
+    ("OVERSIZE", "Large/Oversize"),
+    ("COMMERCIAL", "Truck/Commercial"),
+]
+
 
 class Listing(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -146,6 +153,12 @@ class Listing(models.Model):
         default="J1772",  # Default to the standard connector
         blank=True,
         verbose_name="EV Connector Type",
+    )
+    parking_spot_size = models.CharField(
+        max_length=15,
+        choices=PARKING_SPOT_SIZES,
+        default="STANDARD",  # Default to standard size
+        verbose_name="Parking Spot Size",
     )
 
 

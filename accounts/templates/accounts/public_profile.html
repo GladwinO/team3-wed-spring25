@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'accounts/css/public_profile.css' %}">
+{% endblock %}
+
+{% block title %}{{ profile_user.username }}'s Profile{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <!-- Add car icon header -->
+    <div class="text-center mb-3">
+        <h2><i class="fas fa-car text-primary me-2"></i>Pubilc Profile</h2>
+    </div>
+    
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <!-- Update the top profile section with badge placement -->
+                    <div class="text-center mb-3">
+                        <i class="fas fa-user-circle fa-3x text-secondary opacity-50"></i>
+                        <h4 class="mt-2 mb-0">{{ profile_user.username }}</h4>
+                        
+                        {% if is_verified %}
+                        <div class="mt-2">
+                            <span class="badge bg-pastel-success">
+                                <i class="fas fa-check-circle me-1"></i> Verified
+                            </span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <p><strong>Username:</strong> {{ profile_user.username }}</p>
+                    </div>
+                    
+                    <!-- Email intentionally omitted for privacy -->
+                    
+                    <div class="mb-3">
+                        <p><strong>Member since:</strong> {{ profile_user.date_joined|date:"F d, Y" }}</p>
+                    </div>
+                    
+                    <!-- Keep just the ratings part (without the verified badge) -->
+                    {% if is_verified and average_rating %}
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center flex-nowrap rating-container">
+                            <span class="small fw-bold me-2 text-nowrap">Host Rating:</span>
+                            <span class="rating-stars me-2" data-rating="{{ average_rating }}"></span>
+                            <span class="badge bg-warning text-dark fw-bold">{{ average_rating|floatformat:1 }}</span>
+                            <span class="badge bg-light text-muted ms-2 rating-count-badge">
+                                ({{ review_count }})
+                            </span>
+                        </div>
+                    </div>
+                    {% elif is_verified %}
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center flex-nowrap">
+                            <span class="small fw-bold me-2 text-nowrap">Host Rating:</span>
+                            <span class="badge bg-light text-muted">No ratings yet</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Add the listings link ONLY if user is verified -->
+                    {% if is_verified %}
+                    <div class="mb-3 text-center">
+                      <div class="d-inline-flex align-items-center mb-2">
+                        <i class="fas fa-car-side text-secondary me-2"></i>
+                        <span>
+                          <a href="{% url 'user_listings' username=profile_user.username %}" class="host-listings-link">
+                            <strong>{{ profile_user.username }}'s Listings</strong>
+                          </a>
+                        </span>
+                      </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="text-center mt-4">
+                        <a href="{% url 'home' %}" class="btn btn-secondary">Back to Home</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'accounts/js/public_profile.js' %}"></script>
+{% endblock %}
