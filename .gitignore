@@ -178,7 +178,7 @@ cython_debug/
 .elasticbeanstalk/*
 !.elasticbeanstalk/*.cfg.yml
 !.elasticbeanstalk/*.global.yml
-
+.verification_documents/
 
 *.pyc
 __pycache__/

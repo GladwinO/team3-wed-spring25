@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block title %}Notification Sent{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0">Notification Sent Successfully</h4>
+                </div>
+                <div class="card-body text-center">
+                    <div class="mb-4">
+                        <i class="fas fa-check-circle text-success fa-4x"></i>
+                    </div>
+                    <h5 class="card-title">Your notification has been sent!</h5>
+                    <p class="card-text">The notification has been delivered to {{ recipient_count }} recipient{% if recipient_count != 1 %}s{% endif %}.</p>
+                    
+                    <div class="mt-4">
+                        <a href="{% url 'admin_send_notification' %}" class="btn btn-primary me-2">Send Another Notification</a>
+                        <a href="{% url 'admin_sent_notifications' %}" class="btn btn-secondary">View Sent Notifications</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

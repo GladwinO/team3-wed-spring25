@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "widget_tweaks",
     "messaging",
     "storages",
+    "reports",
 ]
 
 MIDDLEWARE = [
@@ -65,6 +66,8 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "ParkEasy.urls"
 
+# In ParkEasy/settings.py, update the TEMPLATES section to include the new context processor:
+
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -77,6 +80,9 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "messaging.context_processors.unread_messages_count",
+                "accounts.context_processors.notification_count",
+                "accounts.context_processors.verification_count",  # Add this line
+                "accounts.context_processors.report_count",  # Add this line
             ],
         },
     },
@@ -163,3 +169,8 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = "smi6079@nyu.edu"
 EMAIL_HOST_PASSWORD = "test"
 DEFAULT_FROM_EMAIL = "smi6079@nyu.edu"
+
+
+# Save and access verification files
+MEDIA_URL = "/verification_documents/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "verification_documents")

@@ -1,207 +1,263 @@
-/* Map container styles */
+/* Three-pane layout styles */
 
-#map {
-    height: 400px;
-    width: 100%;
-    margin-bottom: 1rem;
+html,
+body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
 }
 
-.view-toggle {
-    margin-bottom: 20px;
+#main-content {
+    display: flex;
+    height: calc(100vh - 56px);
+    /* Subtract navbar height */
+    overflow: hidden;
+    position: absolute;
+    top: 56px;
+    /* Match navbar height */
+    left: 0;
+    right: 0;
+    bottom: 0;
+}
+
+#left-panel {
+    width: 50%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #dee2e6;
+    background-color: white;
+    overflow: hidden;
+}
+
+#list-panel {
+    flex-grow: 1;
+    overflow: hidden;
+    background-color: white;
+    margin-top: -1px;
+    position: relative;
+    z-index: 5;
+    border-top: none;
+}
+
+#list-view-container {
+    padding: 15px;
+    padding-top: 0;
+    /* No padding at top to keep close to header */
+}
+
+#map-panel {
+    width: 50%;
+    height: 100%;
+    position: relative;
+    background-color: #f8f9fa;
 }
 
 #map-view {
-    height: 600px;
+    width: 100%;
+    height: 100%;
+    border: none;
+    border-radius: 0;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #f8f9fa;
+}
+
+
+/* Only apply full-width to the main content area */
+
+#main-content>.container {
+    max-width: 100%;
+    padding: 0;
+    margin: 0;
+}
+
+.view-container.active-view {
+    display: block;
 }
 
 .view-container {
     display: none;
-    /* Hide by default */
-}
-
-.active-view {
-    display: block !important;
-    /* Show when active */
-}
-
-.rating-number {
-    color: #666;
-    font-size: 0.9em;
-    margin-left: 5px;
-}
-
-.outline-badge {
-  cursor: pointer;
-  position: relative;
-  border: 2px solid transparent;
-  transition: all 0.2s ease;
-}
-
-.outline-badge:hover {
-  box-shadow: 0 0 6px rgba(13, 110, 253, 0.5);
-  border-color: #0d6efd;
-  transform: translateY(-1px);
 }
 
 
-/* Garage Marker Styles */
+/* Make navbar fixed but DON'T change its width/padding */
 
-.garage-marker {
-    background-color: transparent !important;
+.navbar {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1030;
+    height: 56px;
+    /* Remove any width/padding overrides */
+}
+
+
+/* Remove padding from list view */
+
+#list-view {
+    padding: 0 !important;
     border: none !important;
 }
 
-.garage-marker i {
-    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+
+/* Utility for resizing panels */
+
+.resize-handle {
+    height: 6px;
+    background-color: #f0f0f0;
+    border-top: 1px solid #ddd;
+    border-bottom: 1px solid #ddd;
 }
 
 
-/* Enhanced Garage Popup Styling */
+/* Map control style overrides */
 
-.garage-popup {
-    padding: 12px;
-    max-width: 280px;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+.leaflet-control-zoom {
+    margin: 10px !important;
 }
 
-.garage-popup h4 {
-    margin: 0 0 12px 0;
-    color: #2c3e50;
-    font-size: 1.2em;
-    font-weight: 600;
-    border-bottom: 2px solid #f0f0f0;
-    padding-bottom: 8px;
-    text-transform: capitalize;
+
+/* Ensure map container is visible */
+
+#map-view.leaflet-container {
+    background-color: #f8f9fa;
+    z-index: 1;
 }
 
-.garage-popup .garage-address,
-.garage-popup .garage-phone,
-.garage-popup .garage-details,
-.garage-popup .garage-features {
-    margin: 10px 0;
-    font-size: 0.95em;
-    color: #34495e;
-    line-height: 1.4;
+
+/* Hide toggle buttons as they're no longer needed */
+
+.view-toggle {
+    display: none;
+}
+
+
+/* Custom title bar for each panel */
+
+.panel-header {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-bottom: 1px solid #dee2e6;
+    margin: 0;
     display: flex;
-    align-items: flex-start;
-}
-
-.garage-popup i {
-    margin-right: 10px;
-    color: #3498db;
-    font-size: 1.1em;
-    margin-top: 2px;
-    min-width: 14px;
-    text-align: center;
-}
-
-.garage-popup a {
-    color: #3498db;
-    text-decoration: none;
-    transition: color 0.2s ease;
-    font-weight: 500;
-}
-
-.garage-popup a:hover {
-    color: #2980b9;
-    text-decoration: underline;
-}
-
-.garage-popup .garage-details {
-    font-style: italic;
-    color: #7f8c8d;
+    justify-content: space-between;
+    align-items: center;
 }
 
 
-/* Add a subtle shadow to make popups stand out */
+/* Listing card hover effect */
 
-.leaflet-popup-content-wrapper {
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
-    border-radius: 8px;
+#list-panel .card {
+    transition: all 0.2s ease;
+    border-left: 3px solid transparent;
 }
 
-.leaflet-popup-tip {
-    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
-}
-
-
-/* Make sure garage name is properly capitalized and looks good */
-
-.garage-name {
-    word-break: break-word;
-    hyphens: auto;
+#list-panel .card:hover {
+    transform: translateX(5px);
+    border-left: 3px solid #007bff;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 
-/* Ensure icon alignment in popup content */
+/* Highlighted card */
 
-.garage-address>div,
-.garage-phone>div,
-.garage-details>div,
-.garage-features>div {
-    flex: 1;
+#list-panel .card.border-primary {
+    border-left-width: 3px !important;
+    background-color: rgba(0, 123, 255, 0.05);
 }
 
 
-/* Style the features display */
+/* Map marker popup styles */
 
-.garage-features {
-    margin: 10px 0;
-    font-size: 0.95em;
-    color: #34495e;
-    line-height: 1.4;
+.map-popup {
+    min-width: 200px;
+}
+
+
+/* Search marker styles */
+
+.search-marker-icon {
+    z-index: 1000 !important;
+}
+
+
+/* Mobile responsiveness */
+
+@media (max-width: 991px) {
+    #main-content {
+        flex-direction: column;
+    }
+    #left-panel,
+    #map-panel {
+        width: 100%;
+        height: auto;
+    }
+    #list-panel {
+        height: auto;
+        min-height: 40vh;
+    }
+    #map-panel {
+        height: 50vh;
+    }
+}
+
+
+/* Fix the list panel header layout */
+
+#list-panel .panel-header {
+    border-top: 1px solid #dee2e6;
     display: flex;
-    align-items: flex-start;
+    justify-content: space-between;
+    align-items: center;
 }
 
-.garage-features i {
-    color: #27ae60;
+#list-panel .panel-header h5 {
+    margin: 0;
 }
 
-
-/* Add a subtle separation between popup sections */
-
-.garage-popup .garage-address,
-.garage-popup .garage-phone,
-.garage-popup .garage-details,
-.garage-popup .garage-features {
-    padding-bottom: 8px;
-    border-bottom: 1px dotted #f0f0f0;
-}
-
-.garage-popup .garage-features {
-    border-bottom: none;
+#list-panel .panel-header a {
+    margin-left: auto;
 }
 
 
-/* Style the garage images */
+/* Make sure there's no unexpected spacing */
 
-.garage-image {
-    margin: -12px -12px 12px -12px;
-    border-radius: 8px 8px 0 0;
-    overflow: hidden;
-    max-height: 150px;
-}
-
-.garage-image img {
-    width: 100%;
-    height: 150px;
-    object-fit: cover;
-    display: block;
+#left-panel>div {
+    margin: 0;
+    box-sizing: border-box;
+    /* Ensure padding doesn't add to width/height */
 }
 
 
-/* Adjust popup with images */
+/* Target only the full-width container */
 
-.garage-popup {
-    padding: 12px;
-    max-width: 280px;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+.full-width-container .container {
+    max-width: 100%;
+    padding: 0;
+    margin: 0;
 }
 
 
-/* Adjust the popup when it has an image */
+/* Regular containers remain untouched */
 
-.garage-popup .garage-image+h4 {
-    margin-top: 0;
+.outline-badge {
+    cursor: pointer;
+    position: relative;
+    border: 2px solid transparent;
+    transition: all 0.2s ease;
 }
+
+.outline-badge:hover {
+    box-shadow: 0 0 6px rgba(13, 110, 253, 0.5);
+    border-color: #0d6efd;
+    transform: translateY(-1px);
+}
+
+
+/* Add a transition effect to the outline badge */

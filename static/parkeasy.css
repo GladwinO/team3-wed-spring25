@@ -1,300 +1,423 @@
 /* parkeasy.css */
 
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
-
 :root {
-  /* Vibrant palette from your screenshot */
-  --color-primary:   #F24E42; /* Papaya */
-  --color-secondary: #E9B000; /* Mustard */
-  --color-accent:    #E66E80; /* Blush */
-  --color-info:      #00B9F5; /* Aqua */
-  --color-light:     #e2f9fa; /* Soft off-white for backgrounds */
+    /* Vibrant palette from your screenshot */
+    --color-primary: #F24E42;
+    /* Papaya */
+    --color-secondary: #E9B000;
+    /* Mustard */
+    --color-accent: #E66E80;
+    /* Blush */
+    --color-info: #00B9F5;
+    /* Aqua */
+    --color-light: #e2f9fa;
+    /* Soft off-white for backgrounds */
 }
+
 
 /* Base styles */
+
 body {
-  font-family: 'Poppins', sans-serif;
-  background-color: var(--color-light); /* subtle background */
-  color: #333;
-  margin: 0;
-  padding: 0;
+    font-family: 'Poppins', sans-serif;
+    background-color: var(--color-light);
+    /* subtle background */
+    color: #333;
+    margin: 0;
+    padding: 0;
 }
 
+
 /* Headings, paragraphs, etc. */
-h1, h2, h3, h4, h5, h6 {
-  font-weight: 600;
-  color: #222; /* Dark gray/black for readability */
-  margin-bottom: 0.75rem;
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-weight: 600;
+    color: #222;
+    /* Dark gray/black for readability */
+    margin-bottom: 0.75rem;
 }
 
 p {
-  margin-bottom: 1rem;
+    margin-bottom: 1rem;
 }
 
+
 /* Buttons - Removed hover styles */
+
 .btn-primary {
-  background-color: var(--color-primary) !important;
-  border-color: var(--color-primary) !important;
-  color: #fff !important;
+    background-color: var(--color-primary) !important;
+    border-color: var(--color-primary) !important;
+    color: #fff !important;
 }
 
 .btn-secondary {
-  background-color: var(--color-secondary) !important;
-  border-color: var(--color-secondary) !important;
-  color: #fff !important;
+    background-color: var(--color-secondary) !important;
+    border-color: var(--color-secondary) !important;
+    color: #fff !important;
 }
 
 .btn-info {
-  background-color: var(--color-info) !important;
-  border-color: var(--color-info) !important;
-  color: #fff !important; /* White text on Aqua */
+    background-color: var(--color-info) !important;
+    border-color: var(--color-info) !important;
+    color: #fff !important;
+    /* White text on Aqua */
 }
 
 .btn-danger {
-  background-color: var(--color-accent) !important;
-  border-color: var(--color-accent) !important;
-  color: #fff !important;
+    background-color: var(--color-accent) !important;
+    border-color: var(--color-accent) !important;
+    color: #fff !important;
 }
 
+
 /* Add new button variant using accent color */
+
 .btn-accent {
-  background-color: var(--color-accent) !important;
-  border-color: var(--color-accent) !important;
-  color: #fff !important;
+    background-color: var(--color-accent) !important;
+    border-color: var(--color-accent) !important;
+    color: #fff !important;
 }
 
 .btn-accent:hover {
-  background-color: #d25d6f !important;
-  border-color: #d25d6f !important;
+    background-color: #d25d6f !important;
+    border-color: #d25d6f !important;
 }
+
 
 /* Outline secondary (for Register button) */
+
 .btn-outline-secondary {
-  color: var(--color-secondary) !important;
-  border-color: var(--color-secondary) !important;
-  background-color: transparent !important;
+    color: var(--color-secondary) !important;
+    border-color: var(--color-secondary) !important;
+    background-color: transparent !important;
 }
+
 
 /* Extra small button */
+
 .btn-xs {
-  padding: 0.15rem 0.5rem;
-  font-size: 0.75rem;
-  line-height: 1.5;
-  border-radius: 0.2rem;
+    padding: 0.15rem 0.5rem;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    border-radius: 0.2rem;
 }
 
+
 /* Outline accent button */
+
 .btn-outline-accent {
-  color: var(--color-accent);
-  border-color: var(--color-accent);
-  background-color: transparent;
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+    background-color: transparent;
 }
 
 .btn-outline-accent:hover {
-  color: #fff;
-  background-color: var(--color-accent);
-  border-color: var(--color-accent);
+    color: #fff;
+    background-color: var(--color-accent);
+    border-color: var(--color-accent);
 }
+
 
 /* Utility classes */
+
 .hero {
-  background: linear-gradient(120deg, var(--color-primary), var(--color-secondary));
-  color: #fff;
-  padding: 4rem 1rem;
-  border-radius: 0.5rem;
-}
-.hero h1 {
-  color: #fff;
-}
-.hero p {
-  color: #fff;
+    background: linear-gradient(120deg, var(--color-primary), var(--color-secondary));
+    color: #fff;
+    padding: 4rem 1rem;
+    border-radius: 0.5rem;
 }
 
+.hero h1 {
+    color: #fff;
+}
+
+.hero p {
+    color: #fff;
+}
+
+
 /* Toggle button styling - Removed hover */
+
 .btn-group .btn-outline-primary,
 #map-view-btn.btn-outline-primary,
 button.btn-outline-primary {
-  color: var(--color-primary) !important;
-  border-color: var(--color-primary) !important;
-  background-color: transparent !important;
+    color: var(--color-primary) !important;
+    border-color: var(--color-primary) !important;
+    background-color: transparent !important;
 }
 
 .btn-group .btn-primary.active,
 #list-view-btn.btn-primary.active,
 button.btn-primary.active {
-  background-color: var(--color-primary) !important;
-  border-color: var(--color-primary) !important; 
-  color: #fff !important;
+    background-color: var(--color-primary) !important;
+    border-color: var(--color-primary) !important;
+    color: #fff !important;
 }
+
 
 /* Override Bootstrap's focus styles */
-.btn:focus, .btn.focus {
-  /* Subtle shadow with the primary color */
-  box-shadow: 0 0 0 2px rgba(242, 78, 66, 0.15) !important;
+
+.btn:focus,
+.btn.focus {
+    /* Subtle shadow with the primary color */
+    box-shadow: 0 0 0 2px rgba(242, 78, 66, 0.15) !important;
 }
 
+
 /* Force colors for star ratings */
-.text-warning, .fas.text-warning, .far.text-warning, .fa-star-half-alt.text-warning {
-  color: var(--color-accent) !important;
+
+.text-warning,
+.fas.text-warning,
+.far.text-warning,
+.fa-star-half-alt.text-warning {
+    color: var(--color-accent) !important;
 }
 
 .badge.bg-warning {
-  background-color: var(--color-accent) !important;
-  color: #fff !important;
+    background-color: var(--color-accent) !important;
+    color: #fff !important;
 }
 
+
 /* Text color classes */
+
 .text-info {
-  color: var(--color-info) !important;
+    color: var(--color-info) !important;
 }
 
 .text-primary {
-  color: var(--color-primary) !important;
+    color: var(--color-primary) !important;
 }
 
 .text-secondary {
-  color: var(--color-secondary) !important;
+    color: var(--color-secondary) !important;
 }
 
 .text-accent {
-  color: var(--color-accent) !important;
+    color: var(--color-accent) !important;
 }
+
 
 /* Better form spacing */
+
 .form-label {
-  font-weight: 500;
-  margin-bottom: 0.3rem;
+    font-weight: 500;
+    margin-bottom: 0.3rem;
 }
+
 
 /* Add more space between filter sections */
-#single-filter, #multiple-filter {
-  padding-top: 0.5rem;
-  padding-bottom: 0.5rem;
+
+#single-filter,
+#multiple-filter {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
 }
 
+
 /* Custom filter box styling */
+
 .filter-box {
-  background-color: white;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  border-radius: 8px;
-  box-shadow: 0 2px 15px rgba(0, 0, 0, 0.05);
-  padding: 1.5rem;
-  margin-bottom: 2rem;
+    background-color: white;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    border-radius: 8px;
+    box-shadow: 0 2px 15px rgba(0, 0, 0, 0.05);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
 }
 
 .filter-box .form-label {
-  color: #666;
-  font-weight: 600;
-  font-size: 0.9rem;
+    color: #666;
+    font-weight: 600;
+    font-size: 0.9rem;
 }
 
 .filter-box .form-control,
 .filter-box .form-select {
-  border-color: #e0e0e0;
-  border-radius: 6px;
+    border-color: #e0e0e0;
+    border-radius: 6px;
 }
 
 .filter-box .form-control:focus,
 .filter-box .form-select:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 0.25rem rgba(242, 78, 66, 0.25);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 0.25rem rgba(242, 78, 66, 0.25);
 }
+
 
 /* Filter section headers */
+
 .filter-section-title {
-  color: var(--color-primary);
-  font-size: 1rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid #f0f0f0;
+    color: var(--color-primary);
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #f0f0f0;
 }
+
 
 /* Custom radio button styling */
+
 .filter-box .form-check-input:checked {
-  background-color: var(--color-primary);
-  border-color: var(--color-primary);
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
 }
 
+
 /* Logo hover animation */
+
 .navbar-brand {
-  position: relative;
-  transition: all 0.3s ease;
+    position: relative;
+    transition: all 0.3s ease;
 }
 
 .navbar-brand i {
-  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  display: inline-block;
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    display: inline-block;
 }
 
 .navbar-brand:hover {
-  text-shadow: 0 0 1px rgba(0,0,0,0.1);
-  color: var(--color-primary) !important;
+    text-shadow: 0 0 1px rgba(0, 0, 0, 0.1);
+    color: var(--color-primary) !important;
 }
 
 .navbar-brand:hover i {
-  transform: rotate(15deg) scale(1.2);
-  color: var(--color-primary);
+    transform: rotate(15deg) scale(1.2);
+    color: var(--color-primary);
 }
 
+
 /* Optional: add a subtle underline animation */
+
 .navbar-brand::after {
-  content: '';
-  position: absolute;
-  width: 0;
-  height: 2px;
-  bottom: 0;
-  left: 0;
-  background-color: var(--color-primary);
-  transition: width 0.3s ease;
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 2px;
+    bottom: 0;
+    left: 0;
+    background-color: var(--color-primary);
+    transition: width 0.3s ease;
 }
 
 .navbar-brand:hover::after {
-  width: 100%;
+    width: 100%;
 }
 
+
 /* Navbar links hover animation */
+
 .navbar .nav-link {
-  position: relative;
-  transition: all 0.3s ease;
-  padding: 0.5rem 1rem !important;
-  margin: 0 0.1rem;
+    position: relative;
+    transition: all 0.3s ease;
+    padding: 0.5rem 1rem !important;
+    margin: 0 0.1rem;
 }
 
 .navbar .nav-link::after {
-  content: '';
-  position: absolute;
-  width: 0;
-  height: 2px;
-  bottom: 0.2rem;
-  left: 1rem;
-  background-color: var(--color-primary);
-  transition: width 0.3s ease;
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 2px;
+    bottom: 0.2rem;
+    left: 1rem;
+    background-color: var(--color-primary);
+    transition: width 0.3s ease;
 }
 
 .navbar .nav-link:hover {
-  color: var(--color-primary) !important;
+    color: var(--color-primary) !important;
 }
 
 .navbar .nav-link:hover::after {
-  width: calc(100% - 2rem);
+    width: calc(100% - 2rem);
 }
 
+
 /* Active nav link */
+
 .navbar .nav-link.active {
-  font-weight: 600;
-  color: var(--color-primary) !important;
+    font-weight: 600;
+    color: var(--color-primary) !important;
 }
 
 .navbar .nav-link.active::after {
-  width: calc(100% - 2rem);
-  background-color: var(--color-primary);
+    width: calc(100% - 2rem);
+    background-color: var(--color-primary);
 }
 
+
 /* Badge positioning adjustment for message counter */
+
 .navbar .badge {
-  position: relative;
-  top: -2px;
-  font-weight: 500;
-  margin-left: 4px;
+    position: relative;
+    top: -2px;
+    font-weight: 500;
+    margin-left: 4px;
+}
+
+
+/* Chevron flips on hover */
+.dropdown:hover .chevron-icon {
+    transform: rotate(180deg);
+}
+
+/* Maintain existing behavior for open dropdowns */
+.dropdown.show .chevron-icon {
+    transform: rotate(180deg);
+}
+
+/* Make dropdown menus appear on hover */
+.dropdown:hover .dropdown-menu {
+    display: block;
+}
+
+/* Small animation for smoother appearance */
+.dropdown-menu {
+    margin-top: 0;
+    transition: all 0.15s ease-in-out;
+}
+
+/* Add transition for the chevron icon if it doesn't exist already */
+.chevron-icon {
+    transition: transform 0.25s ease;
+}
+
+/* Keep the underline visible when hovering over the entire dropdown */
+.dropdown:hover .nav-link::after {
+    width: calc(100% - 2rem) !important;
+}
+
+/* Keep the text color consistent when hovering over the dropdown */
+.dropdown:hover .nav-link {
+    color: var(--color-primary) !important;
+}
+
+
+/* Enhanced notification dot styling */
+.notification-indicator {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background-color: #dc3545;
+    border-radius: 50%;
+    top: 4px;
+    right: 29px;
+    border: none;
+}
+
+/* Make the dropdown hover more forceful by being more specific */
+.navbar .navbar-nav .dropdown:hover .dropdown-menu {
+    display: block !important;
+}
+
+/* Same for the chevron rotation */
+.navbar .navbar-nav .dropdown:hover .chevron-icon {
+    transform: rotate(180deg) !important;
 }

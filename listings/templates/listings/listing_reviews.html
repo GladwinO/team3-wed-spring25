@@ -3,14 +3,37 @@
 
 {% block content %}
 <div class="container mt-5">
-  <h2>Reviews for {{ listing.title }}</h2>
+  <!-- Back button above the title, left-aligned -->
+  <div class="mb-3">
+    <button class="btn btn-outline-secondary" id="back-button" data-fallback="{% url 'view_listings' %}">
+      <i class="fas fa-arrow-left me-1"></i>Back
+    </button>
+  </div>
+  
+  <!-- Title in its own container -->
+  <h2 class="mb-4">Reviews for {{ listing.title }}</h2>
+  
   {% if reviews %}
     {% for review in reviews %}
       <div class="card mb-3">
         <div class="card-body">
+          <!-- Review content -->
           <h5 class="card-title">Rating: {{ review.rating }} / 5</h5>
           <p class="card-text">{{ review.comment }}</p>
-          <p class="card-text"><small class="text-muted">Reviewed by: {{ review.user.username }} on {{ review.created_at|date:"M d, Y" }}</small></p>
+          
+          <!-- Review metadata with report option -->
+          <div class="d-flex justify-content-between align-items-center">
+            <p class="card-text mb-0"><small class="text-muted">Reviewed by: {{ review.user.username }} on {{ review.created_at|date:"M d, Y" }}</small></p>
+            
+            <!-- Report button - only show if user is not the author -->
+            {% if user.is_authenticated and user != review.user %}
+              <a href="{% url 'report_item' 'review' review.id %}" 
+                 class="btn btn-link btn-sm text-danger p-0" 
+                 title="Report this review">
+                <small><i class="fas fa-flag me-1"></i>Report</small>
+              </a>
+            {% endif %}
+          </div>
         </div>
       </div>
     {% endfor %}
@@ -18,4 +41,9 @@
     <p>No reviews yet for this listing.</p>
   {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+{% load static %}
+<script src="{% static 'listings/js/back_button.js' %}"></script>
 {% endblock %}

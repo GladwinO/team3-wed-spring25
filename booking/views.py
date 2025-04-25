@@ -19,6 +19,7 @@ from .utils import (
     generate_recurring_dates,
     generate_booking_slots,
 )
+from accounts.models import Notification
 
 
 @login_required
@@ -177,6 +178,17 @@ def book_listing(request, listing_id):
                                 listing.rent_per_hour
                             )
                             booking.save()
+
+                            # Create notification for the listing owner
+                            Notification.objects.create(
+                                sender=request.user,
+                                recipient=listing.user,
+                                subject=f"New Booking Request for {listing.title}",
+                                content=f"{request.user.username} requested to book your spot '{listing.title}'. "
+                                f"Please review and approve or decline this booking.",
+                                notification_type="BOOKING",
+                            )
+
                             success_messages.append("Booking request created!")
                             return redirect("my_bookings")
                         else:
@@ -290,6 +302,19 @@ def book_listing(request, listing_id):
                             total_hours += duration
                         booking.total_price = total_hours * float(listing.rent_per_hour)
                         booking.save()
+
+                        # Create notification for the listing owner
+                        Notification.objects.create(
+                            sender=request.user,
+                            recipient=listing.user,
+                            subject=f"New Recurring Booking Request for {listing.title}",
+                            content=f"User {request.user.username} has requested \
+                                a recurring booking for your parking spot '{listing.title}'. "
+                            f"This booking includes {len(booking_slots)} dates. "
+                            f"Please review and approve or decline this booking.",
+                            notification_type="BOOKING",
+                        )
+
                         success_messages.append(
                             f"Recurring booking created successfully for {len(booking_slots)} dates!"
                         )
@@ -336,6 +361,16 @@ def book_listing(request, listing_id):
 @login_required
 def cancel_booking(request, booking_id):
     booking = get_object_or_404(Booking, pk=booking_id, user=request.user)
+
+    # Create notification for the listing owner about the cancellation
+    Notification.objects.create(
+        sender=request.user,
+        recipient=booking.listing.user,
+        subject=f"Booking Canceled for {booking.listing.title}",
+        content=f"User {request.user.username} canceled their booking for your spot '{booking.listing.title}'.",
+        notification_type="BOOKING",
+    )
+
     if booking.status == "APPROVED":
         restore_booking_availability(booking.listing, booking)
     booking.delete()
@@ -347,15 +382,105 @@ def manage_booking(request, booking_id, action):
     booking = get_object_or_404(Booking, pk=booking_id)
     if request.user != booking.listing.user:
         return redirect("my_bookings")
+
     if action == "approve":
+        # First check if there are any conflicting bookings
+        conflicts_found = False
+        conflicting_bookings = []
+
+        # Get all pending bookings for this listing except the current one
+        other_pending_bookings = Booking.objects.filter(
+            listing=booking.listing, status="PENDING"
+        ).exclude(pk=booking_id)
+
+        # Get all slots for the current booking
+        current_booking_slots = booking.slots.all()
+
+        # For each of the current booking's slots, check for conflicts with other pending bookings
+        for current_slot in current_booking_slots:
+            current_start = timezone.make_aware(
+                dt.datetime.combine(current_slot.start_date, current_slot.start_time)
+            )
+            current_end = timezone.make_aware(
+                dt.datetime.combine(current_slot.end_date, current_slot.end_time)
+            )
+
+            # Check each pending booking for conflicts
+            for other_booking in other_pending_bookings:
+                # Skip bookings we've already marked as conflicting
+                if other_booking in conflicting_bookings:
+                    continue
+
+                # Check each slot in the other booking
+                for other_slot in other_booking.slots.all():
+                    other_start = timezone.make_aware(
+                        dt.datetime.combine(
+                            other_slot.start_date, other_slot.start_time
+                        )
+                    )
+                    other_end = timezone.make_aware(
+                        dt.datetime.combine(other_slot.end_date, other_slot.end_time)
+                    )
+
+                    # Check if the intervals overlap
+                    if other_start < current_end and current_start < other_end:
+                        conflicts_found = True
+                        if other_booking not in conflicting_bookings:
+                            conflicting_bookings.append(other_booking)
+                        break  # No need to check other slots in this booking
+
+        # Now approve the current booking
         booking.status = "APPROVED"
         booking.save()
         block_out_booking(booking.listing, booking)
+
+        # Create notification for the user that their booking was approved
+        Notification.objects.create(
+            sender=request.user,
+            recipient=booking.user,
+            subject=f"Booking Approved for {booking.listing.title}",
+            content=f"Your booking request for the parking spot '{booking.listing.title}' has been approved."
+            f"You can now use this spot according to your booking schedule.",
+            notification_type="BOOKING",
+        )
+
+        # If conflicts were found, decline those conflicting bookings
+        if conflicts_found:
+            for conflicting_booking in conflicting_bookings:
+                # Skip if somehow this booking was already approved or declined
+                if conflicting_booking.status != "PENDING":
+                    continue
+
+                # Mark the booking as declined
+                conflicting_booking.status = "DECLINED"
+                conflicting_booking.save()
+
+                # Notify the user that their booking was declined due to conflict
+                Notification.objects.create(
+                    sender=request.user,
+                    recipient=conflicting_booking.user,
+                    subject=f"Booking Declined for {booking.listing.title}",
+                    content=f"Your booking request for the parking spot '{booking.listing.title}' \
+                        has been declined because another booking for the same time slot was approved first.",
+                    notification_type="BOOKING",
+                )
+
     elif action == "decline":
         if booking.status == "APPROVED":
             restore_booking_availability(booking.listing, booking)
         booking.status = "DECLINED"
         booking.save()
+
+        # Create notification for the user that their booking was declined
+        Notification.objects.create(
+            sender=request.user,
+            recipient=booking.user,
+            subject=f"Booking Declined for {booking.listing.title}",
+            content=f"Your booking request for the parking spot '{booking.listing.title}' has been declined."
+            f"Please check for other available spots or contact the owner for more information.",
+            notification_type="BOOKING",
+        )
+
     return redirect("manage_listings")
 
 
@@ -415,3 +540,51 @@ def my_bookings(request):
             )
         booking.slots_info = slots_info
     return render(request, "booking/my_bookings.html", {"bookings": user_bookings})
+
+
+def notify_owner_booking_created(booking):
+    """Create a notification for the owner when a booking is created."""
+    owner = booking.listing.user
+    listing_title = booking.listing.title
+    booker_username = booking.user.username
+
+    # Create notification for the owner
+    Notification.objects.create(
+        sender=booking.user,
+        recipient=owner,
+        subject=f"New Booking Request for {listing_title}",
+        content=f"User {booker_username} has requested to book your parking spot '{listing_title}'. "
+        f"Please review and approve or decline this booking.",
+        notification_type="BOOKING",
+    )
+
+
+def notify_owner_booking_canceled(booking):
+    """Create a notification for the owner when a booking is canceled."""
+    owner = booking.listing.user
+    listing_title = booking.listing.title
+    booker_username = booking.user.username
+
+    # Create notification for the owner
+    Notification.objects.create(
+        sender=booking.user,
+        recipient=owner,
+        subject=f"Booking Canceled for {listing_title}",
+        content=f"User {booker_username} has canceled their booking for your parking spot '{listing_title}'.",
+        notification_type="BOOKING",
+    )
+
+
+def notify_user_booking_approved(booking):
+    """Create a notification for the user when their booking is approved."""
+    listing_title = booking.listing.title
+    owner_username = booking.listing.user.username
+
+    # Create notification for the booker
+    Notification.objects.create(
+        sender=booking.listing.user,
+        recipient=booking.user,
+        subject=f"Booking Approved for {listing_title}",
+        content=f"Your booking request for the spot '{listing_title}' by {owner_username} has been approved.",
+        notification_type="BOOKING",
+    )

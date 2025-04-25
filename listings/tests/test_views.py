@@ -52,6 +52,7 @@ class CreateListingViewTest(TestCase):
         self.user_verified.profile.save()
         self.client.login(username="verified", password="pass")
         self.create_url = reverse("create_listing")
+        self.now = datetime.now()
 
     def test_create_listing_get_verified(self):
         response = self.client.get(self.create_url)
@@ -86,12 +87,16 @@ class CreateListingViewTest(TestCase):
             "connector_type": "",
             "parking_spot_size": "STANDARD",
         }
+        start_date = self.now.date() + timedelta(days=1)
+        end_date = start_date
+
         slot_data = {
-            "form-0-start_date": "2025-05-01",
+            "form-0-start_date": start_date.strftime("%Y-%m-%d"),
             "form-0-start_time": "09:00",
-            "form-0-end_date": "2025-05-01",
+            "form-0-end_date": end_date.strftime("%Y-%m-%d"),
             "form-0-end_time": "17:00",
         }
+
         post_data = {
             **listing_data,
             **build_slot_formset_data(prefix="form", count=1, slot_data=slot_data),
@@ -102,8 +107,10 @@ class CreateListingViewTest(TestCase):
         self.assertTrue(Listing.objects.filter(title="New Listing").exists())
         new_listing = Listing.objects.get(title="New Listing")
         slot = new_listing.slots.first()
-        self.assertEqual(slot.start_date.strftime("%Y-%m-%d"), "2025-05-01")
-        self.assertEqual(slot.start_time.strftime("%H:%M"), "09:00")
+        self.assertEqual(slot.start_date, start_date)
+        self.assertEqual(slot.end_date, end_date)
+        self.assertEqual(slot.start_time, time(9, 0))
+        self.assertEqual(slot.end_time, time(17, 0))
 
     def test_create_listing_post_invalid_form(self):
         # Missing title to force an error.
@@ -135,16 +142,23 @@ class CreateListingViewTest(TestCase):
             "parking_spot_size": "STANDARD",
         }
         # Two slots that overlap.
+
+        start_date = self.now.date() + timedelta(days=1)
+        end_date = start_date
+        start_date2 = start_date
+        end_date2 = start_date
+
         slot_data = {
-            "form-0-start_date": "2025-05-01",
+            "form-0-start_date": start_date.strftime("%Y-%m-%d"),
             "form-0-start_time": "09:00",
-            "form-0-end_date": "2025-05-01",
+            "form-0-end_date": end_date.strftime("%Y-%m-%d"),
             "form-0-end_time": "11:00",
-            "form-1-start_date": "2025-05-01",
+            "form-1-start_date": start_date2.strftime("%Y-%m-%d"),
             "form-1-start_time": "10:30",
-            "form-1-end_date": "2025-05-01",
+            "form-1-end_date": end_date2.strftime("%Y-%m-%d"),
             "form-1-end_time": "12:00",
         }
+
         post_data = {
             **listing_data,
             **build_slot_formset_data(prefix="form", count=2, slot_data=slot_data),
@@ -173,12 +187,16 @@ class EditListingViewTest(TestCase):
             has_ev_charger=False,
             parking_spot_size="STANDARD",
         )
+        self.now = datetime.now()
+        start_date = self.now.date() + timedelta(days=1)
+        end_date = start_date
+
         self.original_slot = ListingSlot.objects.create(
             listing=self.listing,
-            start_date="2025-06-01",
-            start_time="10:00",
-            end_date="2025-06-01",
-            end_time="12:00",
+            start_date=start_date.strftime("%Y-%m-%d"),
+            start_time="09:00",
+            end_date=end_date.strftime("%Y-%m-%d"),
+            end_time="17:00",
         )
         self.edit_url = reverse("edit_listing", args=[self.listing.id])
 
@@ -214,7 +232,8 @@ class EditListingViewTest(TestCase):
         self.assertIn("slot_formset", response.context)
 
     def test_edit_listing_post_valid(self):
-        new_date = "2025-06-02"
+        new_date = self.now + timedelta(days=2)
+        new_date = new_date.strftime("%Y-%m-%d")
         listing_data = {
             "title": "Updated Listing",
             "description": "Updated Desc",
@@ -256,19 +275,21 @@ class EditListingViewTest(TestCase):
             "connector_type": "",
             "parking_spot_size": "STANDARD",
         }
+        start_date = self.now.date() + timedelta(days=1)
+        start_date = start_date.strftime("%Y-%m-%d")
         slot_data = {
             "form-TOTAL_FORMS": "2",
             "form-INITIAL_FORMS": "1",
             "form-MIN_NUM_FORMS": "0",
             "form-MAX_NUM_FORMS": "1000",
             "form-0-id": str(self.original_slot.id),
-            "form-0-start_date": "2025-06-01",
+            "form-0-start_date": start_date,
             "form-0-start_time": "10:00",
-            "form-0-end_date": "2025-06-01",
+            "form-0-end_date": start_date,
             "form-0-end_time": "12:00",
-            "form-1-start_date": "2025-06-01",
+            "form-1-start_date": start_date,
             "form-1-start_time": "11:00",
-            "form-1-end_date": "2025-06-01",
+            "form-1-end_date": start_date,
             "form-1-end_time": "13:00",
         }
         post_data = {**listing_data, **slot_data}
@@ -349,29 +370,35 @@ class EditListingViewTest(TestCase):
         self.assertContains(response, "Your changes conflict with an active booking")
 
     def test_edit_listing_get_updates_ongoing_slot_initial(self):
-        # Set a fixed datetime between the slot's start and end.
-        fixed_now = datetime(2025, 6, 1, 11, 0)  # 11:00 AM on June 1, 2025
-        # Create an ongoing slot that starts at 10:00 and ends at 12:00.
+        # Use current date from self.now instead of hard-coded date
+        current_date = self.now.date() + timedelta(days=1)
+
+        # Create an ongoing slot that starts at 10:00 and ends at 12:00
         ongoing_slot = ListingSlot.objects.create(
             listing=self.listing,
-            start_date=fixed_now.date(),
+            start_date=current_date,
             start_time="10:00",
-            end_date=fixed_now.date(),
+            end_date=current_date,
             end_time="12:00",
         )
-        # Patch datetime.now() in the view so that current_dt == fixed_now.
+
+        # Use a time that's between start and end (11:00) but on the current date
+        fixed_now = datetime.combine(current_date, time(11, 0))
+
+        # Patch datetime.now() in the view so that current_dt == fixed_now
         with patch("listings.views.datetime") as mock_datetime:
             mock_datetime.now.return_value = fixed_now
             mock_datetime.combine = datetime.combine
             mock_datetime.strptime = datetime.strptime
             response = self.client.get(self.edit_url)
-        # In the view, the code sets form.initial["start_time"] for ongoing slots.
+
+        # In the view, the code sets form.initial["start_time"] for ongoing slots
         formset = response.context["slot_formset"]
         found = False
         for form in formset.forms:
             if form.instance.id == ongoing_slot.id:
                 # According to the view logic, if current_dt is 11:00 (minute=0),
-                # then new_minute becomes 30 and hour stays 11, so expected "11:30".
+                # then new_minute becomes 30 and hour stays 11, so expected "11:30"
                 self.assertEqual(form.initial.get("start_time"), "11:30")
                 found = True
         self.assertTrue(found)
@@ -654,7 +681,7 @@ class ListingsFilterTest(TestCase):
         self.assertIn("Recurring Daily Listing", titles)
 
     def test_recurring_weekly_valid(self):
-        # Create a listing with slots on 3 consecutive weeks.
+        # Create a listing with slots on 3 consecutive weeks
         weekly_listing = Listing.objects.create(
             user=self.user,
             title="Recurring Weekly Listing",
@@ -664,7 +691,11 @@ class ListingsFilterTest(TestCase):
             has_ev_charger=False,
             parking_spot_size="STANDARD",
         )
-        start_date = datetime.strptime("2025-04-14", "%Y-%m-%d").date()  # Monday
+
+        # Use the test_date from setUp that's already patched in the mock_datetime
+        start_date = self.test_date
+
+        # Create 4 weekly slots
         for week_offset in range(3):
             slot_date = start_date + timedelta(weeks=week_offset)
             ListingSlot.objects.create(
@@ -674,18 +705,21 @@ class ListingsFilterTest(TestCase):
                 end_date=slot_date,
                 end_time="17:00",
             )
+
         url = reverse("view_listings")
         params = {
             "filter_type": "recurring",
             "recurring_pattern": "weekly",
-            "recurring_start_date": "2025-04-14",
+            "recurring_start_date": start_date.strftime("%Y-%m-%d"),
             "recurring_weeks": "3",
             "recurring_start_time": "10:00",
             "recurring_end_time": "16:00",
         }
+
         response = self.client.get(url, params)
         listings = response.context["listings"]
         titles = [listing.title for listing in listings]
+
         self.assertIn("Recurring Weekly Listing", titles)
 
 

@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+
+{% block title %}Notifications{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="text-center mb-3">
+        <h2><i class="fas fa-bell text-primary me-2"></i>Notifications</h2>
+    </div>
+    
+    {% if notifications or verification_messages %}
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                {% for notification in notifications %}
+                    <div class="card mb-3 shadow-sm {% if not notification.read %}border-primary{% endif %}">
+                        <div class="card-header d-flex justify-content-between align-items-center {% if notification.notification_type == 'SYSTEM' %}bg-info text-white{% elif notification.notification_type == 'BOOKING' %}bg-warning text-dark{% elif notification.notification_type == 'ADMIN' %}bg-primary text-white{% elif notification.notification_type == 'VERIFICATION' %}bg-success text-white{% endif %}">
+                            <div>
+                                <strong>{{ notification.subject }}</strong>
+                                {% if not notification.read %}
+                                    <span class="badge bg-danger ms-2">New</span>
+                                {% endif %}
+                            </div>
+                            <small {% if notification.notification_type == 'SYSTEM' or notification.notification_type == 'VERIFICATION' %}class="text-white"{% else %}class="text-muted"{% endif %}>{{ notification.created_at|date:"F d, Y - g:i A" }}</small>
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text">{{ notification.content|linebreaks }}</p>
+                            {% if notification.sender %}
+                                <div class="text-muted text-end">
+                                    <small>From: {{ notification.sender.username }}</small>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+                
+                {# Display legacy verification messages #}
+                {% for message in verification_messages %}
+                    <div class="card mb-3 shadow-sm {% if not message.read %}border-primary{% endif %}">
+                        <div class="card-header d-flex justify-content-between align-items-center bg-success text-white">
+                            <div>
+                                <strong>{{ message.subject }}</strong>
+                                {% if not message.read %}
+                                    <span class="badge bg-danger ms-2">New</span>
+                                {% endif %}
+                            </div>
+                            <small class="text-white">{{ message.created_at|date:"F d, Y - g:i A" }}</small>
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text">{{ message.body|linebreaks }}</p>
+                            <div class="text-muted text-end">
+                                <small>From: {{ message.sender.username }}</small>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% else %}
+        <div class="alert alert-info text-center">
+            You have no notifications at this time.
+        </div>
+    {% endif %}
+    
+    <div class="text-center mt-3">
+        <a href="{% url 'profile' %}" class="btn btn-secondary">Back to Profile</a>
+    </div>
+</div>
+{% endblock %}

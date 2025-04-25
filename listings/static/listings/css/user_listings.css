@@ -1,0 +1,45 @@
+/* Ensure content doesn't get cut off by navbar */
+body {
+  padding-top: 70px; /* Adjust based on your navbar height */
+}
+
+/* Override the scrolling behavior from view_listings.css */
+html, body {
+  overflow: auto !important;
+  height: auto !important;
+  
+  /* Hide scrollbars but keep scrolling functionality */
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;     /* Firefox */
+}
+
+/* Hide WebKit scrollbars (Chrome, Safari) */
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+}
+
+/* Load more button styling */
+.load-more-container {
+  text-align: center;
+  margin: 30px 0;
+}
+
+#loadMoreBtn {
+  transition: all 0.3s ease;
+}
+
+.spin {
+  animation: spin 1s infinite linear;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Empty state styling */
+.alert-info i.fa-info-circle {
+  display: block;
+  margin-bottom: 15px;
+}

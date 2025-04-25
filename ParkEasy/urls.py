@@ -18,6 +18,8 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from accounts.views import home
+from django.views.static import serve
+from django.conf import settings
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -26,4 +28,11 @@ urlpatterns = [
     path("listings/", include("listings.urls")),
     path("booking/", include("booking.urls")),
     path("messaging/", include("messaging.urls")),
+    # This pattern will serve media files from MEDIA_ROOT
+    path(
+        "verification_documents/<path:path>",
+        serve,
+        {"document_root": settings.MEDIA_ROOT},
+    ),
+    path("reports/", include("reports.urls")),
 ]

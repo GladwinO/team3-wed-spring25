@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Reports{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card shadow-sm">
+                <div class="card-header bg-accent text-white py-3">
+                    <h3 class="mb-0">Manage Reports</h3>
+                </div>
+                <div class="card-body">
+                    <!-- Status filter tabs -->
+                    <ul class="nav nav-tabs mb-3">
+                        <li class="nav-item">
+                            <a class="nav-link {% if current_status == 'PENDING' %}active{% endif %}" 
+                               href="?status=PENDING">
+                                Pending 
+                                {% if status_counts.PENDING > 0 %}
+                                <span class="badge bg-danger">{{ status_counts.PENDING }}</span>
+                                {% endif %}
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if current_status == 'REVIEWING' %}active{% endif %}" 
+                               href="?status=REVIEWING">
+                                Reviewing
+                                {% if status_counts.REVIEWING > 0 %}
+                                <span class="badge bg-warning text-dark">{{ status_counts.REVIEWING }}</span>
+                                {% endif %}
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if current_status == 'RESOLVED' %}active{% endif %}" 
+                               href="?status=RESOLVED">Resolved</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if current_status == 'DISMISSED' %}active{% endif %}" 
+                               href="?status=DISMISSED">Dismissed</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if current_status == 'ALL' %}active{% endif %}" 
+                               href="?status=ALL">All Reports</a>
+                        </li>
+                    </ul>
+
+                    <!-- Reports list -->
+                    <div class="list-group">
+                        {% for report in reports %}
+                            <a href="{% url 'admin_report_detail' report.id %}" class="list-group-item list-group-item-action">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h5 class="mb-1">
+                                            {% if report.report_type == 'INAPPROPRIATE' %}
+                                                <span class="badge bg-danger">Inappropriate</span>
+                                            {% elif report.report_type == 'SPAM' %}
+                                                <span class="badge bg-warning text-dark">Spam</span>
+                                            {% elif report.report_type == 'MISLEADING' %}
+                                                <span class="badge bg-info">Misleading</span>
+                                            {% elif report.report_type == 'FRAUD' %}
+                                                <span class="badge bg-danger">Fraud</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Other</span>
+                                            {% endif %}
+                                            Report #{{ report.id }}
+                                        </h5>
+                                        <p class="mb-1">
+                                            <small class="text-muted">
+                                                {{ report.content_type.model|capfirst }} reported by {{ report.reporter.username }} 
+                                                on {{ report.created_at|date:"F d, Y" }}
+                                            </small>
+                                        </p>
+                                    </div>
+                                    <div>
+                                        {% if report.status == 'PENDING' %}
+                                            <span class="badge bg-danger">Pending</span>
+                                        {% elif report.status == 'REVIEWING' %}
+                                            <span class="badge bg-warning text-dark">Reviewing</span>
+                                        {% elif report.status == 'RESOLVED' %}
+                                            <span class="badge bg-success">Resolved</span>
+                                        {% elif report.status == 'DISMISSED' %}
+                                            <span class="badge bg-secondary">Dismissed</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <p class="mb-0 mt-2 text-truncate">{{ report.description|truncatechars:120 }}</p>
+                            </a>
+                        {% empty %}
+                            <div class="text-center p-4">
+                                <i class="fas fa-check-circle text-success fa-3x mb-3"></i>
+                                <h4>No reports to show</h4>
+                                <p class="text-muted">There are no reports in this category.</p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

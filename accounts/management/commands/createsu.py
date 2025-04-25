@@ -13,8 +13,8 @@ class Command(BaseCommand):
             self.stderr.write("Error: SUPERUSER_PASSWORD environment variable not set.")
             return
 
-        if not User.objects.filter(username="nate").exists():
-            User.objects.create_superuser(username="nate", password=password)
-            self.stdout.write("Superuser 'nate' has been created.")
+        if not User.objects.filter(username="admin").exists():
+            User.objects.create_superuser(username="admin", password=password)
+            self.stdout.write("Superuser 'admin' has been created.")
         else:
-            self.stdout.write("Superuser 'nate' already exists.")
+            self.stdout.write("Superuser 'admin' already exists.")

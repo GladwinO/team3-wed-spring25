@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+
+{% block title %}Send Notification{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Send Notification</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {{ form.non_field_errors }}
+                            </div>
+                        {% endif %}
+                        
+                        <div class="mb-4">
+                            <h5>Recipients</h5>
+                            <div class="form-group">
+                                {% for radio in form.recipient_type %}
+                                    <div class="form-check">
+                                        {{ radio.tag }}
+                                        <label class="form-check-label" for="{{ radio.id_for_label }}">
+                                            {{ radio.choice_label }}
+                                        </label>
+                                    </div>
+                                {% endfor %}
+                                {% if form.recipient_type.errors %}
+                                    <div class="text-danger">
+                                        {{ form.recipient_type.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    <ul class="mb-0 ps-3">
+                                        <li><strong>All Users</strong>: Send to all registered users</li>
+                                        <li><strong>Verified Users Only</strong>: Send only to users who have completed verification</li>
+                                        <li><strong>Selected Users</strong>: Choose specific users from the list below</li>
+                                    </ul>
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4 selected-users-section" style="display: none;">
+                            <label for="{{ form.selected_users.id_for_label }}">Select Users</label>
+                            {{ form.selected_users }}
+                            {% if form.selected_users.errors %}
+                                <div class="text-danger">
+                                    {{ form.selected_users.errors }}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted">Hold Ctrl (or Cmd on Mac) to select multiple users.</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.subject.id_for_label }}">Subject</label>
+                            {{ form.subject }}
+                            {% if form.subject.errors %}
+                                <div class="text-danger">
+                                    {{ form.subject.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="{{ form.content.id_for_label }}">Content</label>
+                            {{ form.content }}
+                            {% if form.content.errors %}
+                                <div class="text-danger">
+                                    {{ form.content.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'admin_sent_notifications' %}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">Send Notification</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const recipientChoices = document.querySelectorAll('input[name="recipient_type"]');
+    const selectedUsersSection = document.querySelector('.selected-users-section');
+    
+    // Function to toggle the selected users section visibility
+    function toggleSelectedUsers() {
+        const selectedOption = document.querySelector('input[name="recipient_type"]:checked').value;
+        if (selectedOption === 'SELECTED') {
+            selectedUsersSection.style.display = 'block';
+        } else {
+            selectedUsersSection.style.display = 'none';
+        }
+    }
+    
+    // Initial check
+    toggleSelectedUsers();
+    
+    // Add event listener to all radio buttons
+    recipientChoices.forEach(function(radio) {
+        radio.addEventListener('change', toggleSelectedUsers);
+    });
+});
+</script>
+{% endblock %}
+{% endblock %}

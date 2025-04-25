@@ -7,6 +7,7 @@ from django.test import TestCase, Client, override_settings
 from django.urls import reverse
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
+from accounts.forms import VerificationForm
 
 # Create a temporary directory for MEDIA_ROOT during tests.
 TEMP_MEDIA_ROOT = tempfile.mkdtemp()
@@ -122,7 +123,8 @@ class AccountsViewsTest(TestCase):
         response = self.client.get(reverse("verify"))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "accounts/verify.html")
-        self.assertNotIn("success", response.context)
+        self.assertIn("form", response.context)
+        self.assertIsInstance(response.context["form"], VerificationForm)
 
     def test_verify_view_get_already_verified(self):
         """
@@ -137,75 +139,200 @@ class AccountsViewsTest(TestCase):
         self.assertIn("success", response.context)
         self.assertTrue(response.context["success"])
 
-    def test_verify_view_post_invalid_file_type(self):
+    def test_verify_view_get_verification_pending(self):
         """
-        A POST request to the verify view with an uploaded file that is not a PDF should return an error.
+        A GET request to the verify view for a user with a pending verification request should show pending status.
         """
         self.client.force_login(self.user)
-        data = {"answer": "ParkEasy"}
-        # Create a non-PDF file (e.g., a .txt file)
-        file_data = SimpleUploadedFile(
-            "test.txt", b"Some text content", content_type="text/plain"
-        )
-        data["verification_file"] = file_data
-        response = self.client.post(reverse("verify"), data)
+        self.user.profile.is_verified = False
+        self.user.profile.verification_requested = True
+        self.user.profile.save()
+        response = self.client.get(reverse("verify"))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "accounts/verify.html")
-        self.assertIn("error_message", response.context)
-        self.assertEqual(
-            response.context["error_message"], "Only PDF files are allowed."
+
+    def test_verify_view_post_valid_information(self):
+        """
+        A POST request to the verify view with valid user information should create a verification request.
+        """
+        # Log in the user with force_login (matches pattern used in other tests)
+        self.client.force_login(self.user)
+
+        # Create a test file
+        test_file = SimpleUploadedFile(
+            "document.pdf", b"PDF content", content_type="application/pdf"
         )
 
-    def test_verify_view_post_wrong_answer(self):
-        """
-        A POST request to the verify view with an incorrect answer should return an error message.
-        """
-        self.client.force_login(self.user)
-        data = {"answer": "WrongAnswer"}
-        response = self.client.post(reverse("verify"), data)
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "accounts/verify.html")
-        self.assertIn("error_message", response.context)
-        self.assertEqual(
-            response.context["error_message"],
-            "Incorrect answer, verification failed. Please try again.",
+        # Include the file in your POST data
+        response = self.client.post(
+            reverse("verify"),
+            {
+                "age": 25,
+                "address": "123 Test Street, New York, NY 10001",
+                "phone_number": "+1234567890",
+                "verification_file": test_file,
+            },
+            follow=True,
         )
 
-    def test_verify_view_post_correct_answer_without_file(self):
-        """
-        A POST request to the verify view with the correct answer and no file should verify the user.
-        """
-        self.client.force_login(self.user)
-        data = {"answer": "ParkEasy"}
-        response = self.client.post(reverse("verify"), data)
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "accounts/verify.html")
-        self.assertIn("success", response.context)
-        self.assertTrue(response.context["success"])
-        self.assertIn("success_message", response.context)
+        self.assertIn("request_sent", response.context)
+
+        # Add additional assertions to verify the request was created
         self.user.profile.refresh_from_db()
-        self.assertTrue(self.user.profile.is_verified)
+        self.assertTrue(self.user.profile.verification_requested)
 
-    def test_verify_view_post_correct_answer_with_file(self):
+    def test_verify_view_post_invalid_age(self):
         """
-        A POST request to the verify view with the correct answer and a valid PDF file should verify
-        the user and save the file.
+        A POST request with an invalid age (below minimum) should show form errors.
+        """
+        self.client.force_login(self.user)
+        data = {
+            "age": 15,  # Below minimum age of 18
+            "address": "123 Test Street, New York, NY 10001",
+            "phone_number": "+1234567890",
+        }
+        response = self.client.post(reverse("verify"), data)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "accounts/verify.html")
+        self.assertIn("form", response.context)
+        self.assertTrue(response.context["form"].errors["age"])
+
+    def test_verify_view_post_invalid_phone(self):
+        """
+        A POST request with an invalid phone number format should show form errors.
+        """
+        self.client.force_login(self.user)
+        data = {
+            "age": 25,
+            "address": "123 Test Street, New York, NY 10001",
+            "phone_number": "invalid-format",  # Invalid format
+        }
+        response = self.client.post(reverse("verify"), data)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "accounts/verify.html")
+        self.assertIn("form", response.context)
+        self.assertTrue(response.context["form"].errors["phone_number"])
+
+    def test_verify_view_post_with_valid_pdf(self):
+        """
+        A POST request with valid information and a PDF file should store the file.
         """
         self.client.force_login(self.user)
         pdf_file = SimpleUploadedFile(
             "document.pdf", b"PDF content", content_type="application/pdf"
         )
-        data = {"answer": "ParkEasy", "verification_file": pdf_file}
+        data = {
+            "age": 25,
+            "address": "123 Test Street, New York, NY 10001",
+            "phone_number": "+1234567890",
+            "verification_file": pdf_file,
+        }
         response = self.client.post(reverse("verify"), data)
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "accounts/verify.html")
-        self.assertIn("success", response.context)
-        self.assertTrue(response.context["success"])
+        self.assertIn("request_sent", response.context)
+
+        # Refresh user profile
+        self.user.profile.refresh_from_db()
+        self.assertTrue(self.user.profile.verification_file)
+        self.assertTrue(self.user.profile.verification_file.name.endswith(".pdf"))
+
+    def test_verify_view_post_with_invalid_file_type(self):
+        """
+        A POST request with an invalid file type should show a validation error.
+        """
+        self.client.force_login(self.user)
+        text_file = SimpleUploadedFile(
+            "document.txt", b"Text content", content_type="text/plain"
+        )
+        data = {
+            "age": 25,
+            "address": "123 Test Street, New York, NY 10001",
+            "phone_number": "+1234567890",
+            "verification_file": text_file,
+        }
+        response = self.client.post(reverse("verify"), data)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "accounts/verify.html")
+        self.assertIn("form", response.context)
+        self.assertTrue(response.context["form"].errors["verification_file"])
+
+    def test_admin_verify_user_view_not_admin(self):
+        """
+        A non-admin user should not be able to access the admin verification view.
+        """
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("admin_verify_user", args=[self.user.id]))
+        self.assertEqual(response.status_code, 403)  # Forbidden
+
+    def test_admin_verify_user_view_admin_get(self):
+        """
+        An admin should be able to see the verification details.
+        """
+        # Create an admin user
+        admin = User.objects.create_user(
+            username="admin", password="adminpass123", is_staff=True
+        )
+        self.client.force_login(admin)
+
+        # Setup user to verify
+        self.user.profile.age = 25
+        self.user.profile.address = "123 Test St"
+        self.user.profile.phone_number = "+1234567890"
+        self.user.profile.verification_requested = True
+        self.user.profile.save()
+
+        response = self.client.get(reverse("admin_verify_user", args=[self.user.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "accounts/admin_verify.html")
+        self.assertIn("user_to_verify", response.context)
+        self.assertEqual(response.context["user_to_verify"], self.user)
+
+    def test_admin_verify_user_view_admin_post(self):
+        """
+        An admin should be able to approve a verification request.
+        """
+        # Create an admin user
+        admin = User.objects.create_user(
+            username="admin", password="adminpass123", is_staff=True
+        )
+        self.client.force_login(admin)
+
+        # Setup user to verify
+        self.user.profile.verification_requested = True
+        self.user.profile.save()
+
+        response = self.client.post(
+            reverse("admin_verify_user", args=[self.user.id]),
+            {"confirm_verification": "true"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "accounts/admin_verify.html")
+        self.assertIn("verification_complete", response.context)
+
+        # Check that user is now verified
         self.user.profile.refresh_from_db()
         self.assertTrue(self.user.profile.is_verified)
-        self.assertTrue(self.user.profile.verification_file)
-        # Check that the saved file's name ends with .pdf
-        self.assertTrue(self.user.profile.verification_file.name.endswith(".pdf"))
+
+    def test_admin_verify_already_verified_user(self):
+        """
+        When trying to verify an already verified user, show appropriate message.
+        """
+        # Create an admin user
+        admin = User.objects.create_user(
+            username="admin", password="adminpass123", is_staff=True
+        )
+        self.client.force_login(admin)
+
+        # Setup user as already verified
+        self.user.profile.is_verified = True
+        self.user.profile.save()
+
+        response = self.client.get(reverse("admin_verify_user", args=[self.user.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "accounts/admin_verify.html")
+        self.assertIn("already_verified", response.context)
+        self.assertTrue(response.context["already_verified"])
 
     def test_profile_view_requires_login(self):
         """
@@ -225,3 +352,28 @@ class AccountsViewsTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "accounts/profile.html")
         self.assertIn("user", response.context)
+        self.assertIn("unread_count", response.context)
+
+    def test_user_notifications_view(self):
+        """
+        Test that the notifications view shows user messages and marks them as read.
+        """
+        from messaging.models import Message
+
+        self.client.force_login(self.user)
+
+        # Create a test message
+        admin = User.objects.create_user(username="admin", is_staff=True)
+        msg = Message.objects.create(
+            sender=admin,
+            recipient=self.user,
+            subject="Test Message",
+            body="This is a test message",
+            read=False,
+        )
+        print(f"Created message: {msg}")
+
+        response = self.client.get(reverse("user_notifications"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "accounts/notifications.html")
+        self.assertIn("messages", response.context)

@@ -1,4 +1,9 @@
 {% extends 'base.html' %}
+{% load static %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'accounts/css/public_profile.css' %}?v={% now 'U' %}">
+{% endblock %}
 
 {% block title %}Profile{% endblock %}
 
@@ -26,9 +31,29 @@
         <div class="col-md-6">
             <div class="card shadow-sm border-0">
                 <div class="card-body py-3 px-4">
+                    <!-- Update the header section to include verification status -->
                     <div class="text-center mb-3">
                         <i class="fas fa-user-circle fa-3x text-secondary opacity-50"></i>
                         <h4 class="mt-2 mb-0">Welcome, {{ user.username }}!</h4>
+                        
+                        <!-- Add verification badge here -->
+                        <div class="mt-2">
+                            {% if user.profile.is_verified %}
+                                <span class="badge bg-pastel-success">
+                                    <i class="fas fa-check-circle me-1"></i> Verified
+                                </span>
+                            {% elif pending_verification %}
+                                <span class="badge bg-pastel-info">
+                                    <i class="fas fa-clock me-1"></i> Awaiting Verification
+                                </span>
+                            {% else %}
+                                <div class="d-flex justify-content-center align-items-center">
+                                    <a href="{% url 'verify' %}" class="badge bg-warning text-dark me-2 py-2 px-3 fs-6 fw-normal text-decoration-none">
+                                        <i class="fas fa-parking me-1"></i> Post a Spot
+                                    </a>
+                                </div>
+                            {% endif %}
+                        </div>
                     </div>
                     
                     <div class="profile-info">
@@ -67,15 +92,15 @@
                             </div>
                         </div>
                         
-                        <!-- Date joined row -->
-                        <div class="row justify-content-center">
-                            <div class="col-12 d-flex justify-content-between align-items-center">
-                                <p class="mb-0"><strong>Date Joined:</strong> {{ user.date_joined|date:"F d, Y" }}</p>
-                                <!-- No action button for date joined -->
-                            </div>
-                        </div>
                     </div>
                     
+                    <div class="row justify-content-center mt-3">
+                        <div class="col-12 d-flex justify-content-between align-items-center">
+                            <p class="mb-0"><strong>Member since:</strong> {{ user.date_joined|date:"F d, Y" }}</p>
+                            <!-- No action button for date joined -->
+                        </div>
+                    </div>
+
                     <div class="mt-3 text-center">
                         <a href="{% url 'home' %}" class="btn btn-secondary btn-sm">Back to Home</a>
                     </div>

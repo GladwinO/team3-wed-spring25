@@ -1,0 +1,87 @@
+/* Filter box basic styling */
+.filter-box {
+  padding: 0;
+  margin: 0;
+}
+
+.filter-box .card {
+  border: none;
+  box-shadow: none;
+  margin-bottom: 0;
+}
+
+/* Filter panel structure and behavior */
+#filter-panel {
+  flex-shrink: 0;
+  transition: height 0.3s ease;
+  overflow: hidden;
+  background-color: white;
+  z-index: 10;
+  position: relative;
+  border-bottom: none;
+}
+
+#filter-panel.collapsed {
+  height: 56px; /* Just enough for the header */
+}
+
+#filter-panel.expanded {
+  height: auto;
+  max-height: 70%;
+  overflow-y: auto;
+}
+
+/* Filter header styles */
+.filter-header {
+  cursor: pointer;
+  z-index: 15;
+  position: relative;
+}
+
+.filter-header h5 {
+  margin: 0;
+  display: inline-block;
+}
+
+.filter-header button {
+  margin-left: auto;
+}
+
+/* Filter content area */
+.filter-content {
+  padding: 0;
+  display: none;
+}
+
+#filter-panel.expanded .filter-content {
+  display: block;
+}
+
+/* Remove rounded corners from cards within filter panel */
+#filter-panel .card {
+  border-radius: 0;
+}
+
+/* Improve button spacing in filter panel */
+#filter-panel .d-grid {
+  margin-top: 1rem;
+}
+
+/* Chevron animation */
+#filter-panel.collapsed #filter-chevron {
+  transform: rotate(0deg);
+  transition: transform 0.3s ease;
+}
+
+#filter-panel.expanded #filter-chevron {
+  transform: rotate(180deg);
+  transition: transform 0.3s ease;
+}
+
+/* Mobile responsiveness for filter panel */
+@media (max-width: 991px) {
+  #filter-panel.expanded {
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+}

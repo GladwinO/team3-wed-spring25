@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+
+{% block title %}Verify User{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            {% if already_verified %}
+                <div class="alert alert-info">
+                    User <strong>{{ username }}</strong> is already verified.
+                </div>
+                <div class="text-center mt-3">
+                    <a href="{% url 'admin_verification_requests' %}" class="btn btn-accent">Return to Verification Requests</a>
+                </div>
+            {% elif verification_complete %}
+                <div class="alert alert-success">
+                    User <strong>{{ username }}</strong> has been successfully verified and notified.
+                </div>
+                <div class="text-center mt-3">
+                    <a href="{% url 'admin_verification_requests' %}" class="btn btn-accent">Return to Verification Requests</a>
+                </div>
+            {% elif verification_declined %}
+                <div class="alert alert-warning">
+                    Verification request for <strong>{{ username }}</strong> has been declined. The user has been notified with your reason.
+                </div>
+                <div class="text-center mt-3">
+                    <a href="{% url 'admin_verification_requests' %}" class="btn btn-accent">Return to Verification Requests</a>
+                </div>
+            {% else %}
+                <div class="card">
+                    <div class="card-header bg-accent text-white">
+                        <h4 class="mb-0">Verify User: {{ user_to_verify.username }}</h4>
+                    </div>
+                    <div class="card-body">
+                        <h5>User Information</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Username:</strong> {{ user_to_verify.username }}</p>
+                                <p><strong>Email:</strong> {{ user_to_verify.email|default:"Not provided" }}</p>
+                                <p><strong>Joined:</strong> {{ user_to_verify.date_joined|date:"F d, Y" }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Age:</strong> {{ user_to_verify.profile.age|default:"Not provided" }}</p>
+                                <p><strong>Phone:</strong> {{ user_to_verify.profile.phone_number|default:"Not provided" }}</p>
+                            </div>
+                        </div>
+                        
+                        {% if user_to_verify.profile.address %}
+                            <div class="mb-3">
+                                <strong>Address:</strong>
+                                <div class="card bg-light">
+                                    <div class="card-body py-2">
+                                        {{ user_to_verify.profile.address|linebreaks }}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
+                        
+                        {% if has_verification_file %}
+                            <h5 class="mt-4">Verification Document</h5>
+                            <div class="mb-3">
+                                <a href="{{ user_to_verify.profile.verification_file.url }}" class="btn btn-outline-accent" target="_blank">
+                                    <i class="fas fa-file-pdf me-2"></i>View Verification Document
+                                </a>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-warning">
+                                No verification document was uploaded.
+                            </div>
+                        {% endif %}
+                        
+                        <div class="mt-4">
+                            <ul class="nav nav-tabs" id="verificationTabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="approve-tab" data-bs-toggle="tab" data-bs-target="#approve" type="button" role="tab" aria-controls="approve" aria-selected="true">Approve</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="decline-tab" data-bs-toggle="tab" data-bs-target="#decline" type="button" role="tab" aria-controls="decline" aria-selected="false">Decline</button>
+                                </li>
+                            </ul>
+                            
+                            <div class="tab-content mt-3" id="verificationTabsContent">
+                                <!-- Approve Tab -->
+                                <div class="tab-pane fade show active" id="approve" role="tabpanel" aria-labelledby="approve-tab">
+                                    <div class="alert alert-info">
+                                        Approving this user will send them a notification and allow them to post listings.
+                                    </div>
+                                    <form method="post">
+                                        {% csrf_token %}
+                                        <div class="d-flex justify-content-between">
+                                            <a href="{% url 'admin_verification_requests' %}" class="btn btn-secondary">Cancel</a>
+                                            <button type="submit" name="confirm_verification" class="btn btn-success">
+                                                <i class="fas fa-check-circle me-1"></i> Approve Verification
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                                
+                                <!-- Decline Tab -->
+                                <div class="tab-pane fade" id="decline" role="tabpanel" aria-labelledby="decline-tab">
+                                    <div class="alert alert-warning">
+                                        Declining this request will require the user to submit a new verification request. Please provide a reason for the decline.
+                                    </div>
+                                    <form method="post">
+                                        {% csrf_token %}
+                                        <div class="mb-3">
+                                            <label for="decline_reason" class="form-label">Reason for Declining</label>
+                                            <textarea class="form-control" id="decline_reason" name="decline_reason" rows="3" required></textarea>
+                                            <div class="form-text">This reason will be sent to the user.</div>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <a href="{% url 'admin_verification_requests' %}" class="btn btn-secondary">Cancel</a>
+                                            <button type="submit" name="decline_verification" class="btn btn-danger">
+                                                <i class="fas fa-times-circle me-1"></i> Decline Verification
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

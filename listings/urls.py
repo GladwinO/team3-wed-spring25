@@ -12,4 +12,12 @@ urlpatterns = [
     path("<int:listing_id>/delete/", views.delete_listing, name="delete_listing"),
     path("reviews/<int:listing_id>/", views.listing_reviews, name="listing_reviews"),
     path("user/<str:username>/listings/", views.user_listings, name="user_listings"),
+    path("map-view-listings/", views.map_view_listings, name="map_view_listings"),
+    path("my_listings/", views.my_listings, name="my_listings"),
+    path(
+        "api/user-listings/<str:username>/",
+        views.user_listings_api,
+        name="user_listings_api",
+    ),
+    path("map_legend/", views.map_legend, name="map_legend"),
 ]

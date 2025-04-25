@@ -8,6 +8,9 @@
 {% block title %}{{ profile_user.username }}'s Profile{% endblock %}
 
 {% block content %}
+<!-- Debug code moved inside the content block -->
+<div style="display: none;">Debug: is_verified = {{ is_verified|yesno:"true,false" }}</div>
+
 <div class="container mt-5">
     <!-- Add car icon header -->
     <div class="text-center mb-3">
@@ -23,13 +26,21 @@
                         <i class="fas fa-user-circle fa-3x text-secondary opacity-50"></i>
                         <h4 class="mt-2 mb-0">{{ profile_user.username }}</h4>
                         
-                        {% if is_verified %}
                         <div class="mt-2">
-                            <span class="badge bg-pastel-success">
-                                <i class="fas fa-check-circle me-1"></i> Verified
-                            </span>
+                            {% if is_verified %}
+                                <span class="badge bg-pastel-success">
+                                    <i class="fas fa-check-circle me-1"></i> Verified
+                                </span>
+                            {% elif pending_verification %}
+                                <span class="badge bg-pastel-info">
+                                    <i class="fas fa-clock me-1"></i> Awaiting Verification
+                                </span>
+                            {% else %}
+                                <span class="badge bg-pastel-danger">
+                                    <i class="fas fa-exclamation-circle me-1"></i> Not Verified to Post Spots
+                                </span>
+                            {% endif %}
                         </div>
-                        {% endif %}
                     </div>
                     
                     <div class="mb-3">

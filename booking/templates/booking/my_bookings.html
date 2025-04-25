@@ -123,6 +123,11 @@
                   {% if booking.is_reviewed %}
                     <span class="badge bg-info"><i class="fas fa-star me-1"></i>Reviewed</span>
                   {% endif %}
+                  
+                  <!-- Add the report link here -->
+                  <a href="{% url 'report_item' 'listing' booking.listing.id %}" class="text-danger ms-2">
+                    <i class="fas fa-flag"></i> Report this Listing
+                  </a>
                 </div>
                 <div>
                   <div>

@@ -1,35 +1,84 @@
 {% extends "base.html" %}
 
+{% block title %}Account Verification{% endblock %}
+
 {% block content %}
 <div class="container mt-5">
     {% if success %}
         <div class="alert alert-success">
-            {% if success_message %}
-                {{ success_message }}
-            {% else %}
-                Congratulations, you are verified and can now post spots!
-            {% endif %}
+            Congratulations, you are verified and can now post spots!
         </div>
-        <!-- Optionally, provide a link to where they can post a spot -->
+        <!-- Provide a link to where they can post a spot -->
         <a href="{% url 'create_listing' %}" class="btn btn-primary">Post a Spot</a>
+    {% elif pending %}
+        <div class="alert alert-warning">
+            Your verification request is pending approval. You will be notified once an administrator reviews your request.
+        </div>
+        <a href="{% url 'profile' %}" class="btn btn-primary">Back to Profile</a>
+    {% elif request_sent %}
+        <div class="alert alert-info">
+            {{ success_message }}
+        </div>
+        <a href="{% url 'profile' %}" class="btn btn-primary">Back to Profile</a>
     {% else %}
-        {% if error_message %}
-            <div class="alert alert-danger">{{ error_message }}</div>
-        {% endif %}
-        <h2>Account Verification</h2>
-        <p>Please answer this question to verify your account:</p>
-        <p><strong>What is the best app for renting parking spots?</strong></p>
-        <form method="POST" enctype="multipart/form-data">
-            {% csrf_token %}
-            <div class="mb-3">
-                <input type="text" name="answer" class="form-control" placeholder="Enter your answer">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h3 class="mb-0">Account Verification</h3>
+                    </div>
+                    <div class="card-body">
+                        <p class="lead">Please provide your information to verify your account:</p>
+                        
+                        {% if error_message %}
+                            <div class="alert alert-danger">{{ error_message }}</div>
+                        {% endif %}
+                        
+                        <form method="POST" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            
+                            <div class="mb-3">
+                                <label for="id_age" class="form-label">Age <span class="text-danger">*</span></label>
+                                {{ form.age }}
+                                {% if form.age.errors %}
+                                    <div class="text-danger mt-1">{{ form.age.errors }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="id_address" class="form-label">Address <span class="text-danger">*</span></label>
+                                {{ form.address }}
+                                {% if form.address.errors %}
+                                    <div class="text-danger mt-1">{{ form.address.errors }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="id_phone_number" class="form-label">Phone Number <span class="text-danger">*</span></label>
+                                {{ form.phone_number }}
+                                {% if form.phone_number.errors %}
+                                    <div class="text-danger mt-1">{{ form.phone_number.errors }}</div>
+                                {% endif %}
+                                <div class="form-text">Enter your phone number in international format (e.g., +1234567890)</div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label for="id_verification_file" class="form-label">Verification Document <span class="text-danger">*</span></label>
+                                {{ form.verification_file }}
+                                {% if form.verification_file.errors %}
+                                    <div class="text-danger mt-1">{{ form.verification_file.errors }}</div>
+                                {% endif %}
+                                <div class="form-text">Upload a PDF document for verification (ID, driver's license, etc.)</div>
+                            </div>
+                            
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary">Submit Verification Request</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
             </div>
-            <div class="mb-3">
-                <label for="verification_file">Upload your PDF file:</label>
-                <input type="file" name="verification_file" accept="application/pdf">
-            </div>
-            <button type="submit" class="btn btn-primary">Submit Answer</button>
-        </form>
+        </div>
     {% endif %}
 </div>
 {% endblock %}

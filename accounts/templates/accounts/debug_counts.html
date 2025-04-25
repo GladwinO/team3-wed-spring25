@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+
+{% block title %}Debug Notification Counts{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Notification Debug Information</h2>
+    
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Counts</h4>
+        </div>
+        <div class="card-body">
+            <p><strong>Unread Notifications:</strong> {{ unread_notification_count }}</p>
+            <p><strong>Unread Messages:</strong> {{ unread_message_count }}</p>
+            <p><strong>Total Unread:</strong> {{ unread_notification_count|add:unread_message_count }}</p>
+        </div>
+    </div>
+    
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Unread Notifications List</h4>
+        </div>
+        <div class="card-body">
+            {% if unread_notifications %}
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Subject</th>
+                            <th>Read Status</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for notification in unread_notifications %}
+                            <tr>
+                                <td>{{ notification.id }}</td>
+                                <td>{{ notification.subject }}</td>
+                                <td>{{ notification.read }}</td>
+                                <td>{{ notification.created_at }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>No unread notifications</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <h4>Unread Messages List</h4>
+        </div>
+        <div class="card-body">
+            {% if unread_messages %}
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Subject</th>
+                            <th>Read Status</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for message in unread_messages %}
+                            <tr>
+                                <td>{{ message.id }}</td>
+                                <td>{{ message.subject }}</td>
+                                <td>{{ message.read }}</td>
+                                <td>{{ message.created_at }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>No unread messages</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="mt-3">
+        <a href="{% url 'profile' %}" class="btn btn-primary">Back to Profile</a>
+    </div>
+</div>
+{% endblock %}

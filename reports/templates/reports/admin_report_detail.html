@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+
+{% block title %}Report Details{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0">Report #{{ report.id }}</h3>
+                    <span class="badge 
+                        {% if report.status == 'PENDING' %}bg-danger
+                        {% elif report.status == 'REVIEWING' %}bg-warning text-dark
+                        {% elif report.status == 'RESOLVED' %}bg-success
+                        {% elif report.status == 'DISMISSED' %}bg-secondary
+                        {% endif %}">
+                        {{ report.get_status_display }}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h5>Report Information</h5>
+                            <p><strong>Reported By:</strong> {{ report.reporter.username }}</p>
+                            <p><strong>Type:</strong> {{ report.get_report_type_display }}</p>
+                            <p><strong>Submitted:</strong> {{ report.created_at|date:"F d, Y, g:i a" }}</p>
+                            <p><strong>Status:</strong> {{ report.get_status_display }}</p>
+                            {% if report.resolved_by %}
+                                <p><strong>Handled By:</strong> {{ report.resolved_by.username }}</p>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Reported Content</h5>
+                            <p><strong>Content Type:</strong> {{ report.content_type.model|capfirst }}</p>
+                            <p><strong>Content ID:</strong> {{ report.object_id }}</p>
+                            
+                            {% if reported_object %}
+                                <div class="mt-2">
+                                    <a href="/admin/{{ report.content_type.app_label }}/{{ report.content_type.model }}/{{ report.object_id }}/change/" 
+                                       class="btn btn-sm btn-outline-primary" target="_blank">
+                                        <i class="fas fa-external-link-alt me-1"></i> View in Admin
+                                    </a>
+                                    
+                                    {% if object_type == 'message' %}
+                                        <a href="{% url 'message_detail' reported_object.id %}" 
+                                           class="btn btn-sm btn-outline-secondary ms-2">
+                                            <i class="fas fa-envelope me-1"></i> View Message
+                                        </a>
+                                    {% elif object_type == 'listing' %}
+                                        <a href="{% url 'user_listings' reported_object.user.username %}" 
+                                           class="btn btn-sm btn-outline-secondary ms-2">
+                                            <i class="fas fa-list me-1"></i> View User's Listings
+                                        </a>
+                                    {% elif object_type == 'review' %}
+                                        <a href="{% url 'listing_reviews' reported_object.listing.id %}" 
+                                           class="btn btn-sm btn-outline-secondary ms-2">
+                                            <i class="fas fa-star me-1"></i> View Reviews
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    The reported content no longer exists or has been deleted.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="card mb-4">
+                        <div class="card-header bg-light">Report Description</div>
+                        <div class="card-body">
+                            {{ report.description|linebreaks }}
+                        </div>
+                    </div>
+                    
+                    <!-- Reported content preview -->
+                    {% if reported_object %}
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">Content Preview</div>
+                            <div class="card-body">
+                                {% if object_type == 'message' %}
+                                    <p><strong>From:</strong> {{ reported_object.sender.username }}</p>
+                                    <p><strong>To:</strong> {{ reported_object.recipient.username }}</p>
+                                    <p><strong>Subject:</strong> {{ reported_object.subject|default:"(No Subject)" }}</p>
+                                    <div class="card bg-light mt-2">
+                                        <div class="card-body">
+                                            {{ reported_object.body|linebreaks }}
+                                        </div>
+                                    </div>
+                                {% elif object_type == 'listing' %}
+                                    <p><strong>Title:</strong> {{ reported_object.title }}</p>
+                                    <p><strong>Owner:</strong> {{ reported_object.user.username }}</p>
+                                    <p><strong>Location:</strong> {{ reported_object.location }}</p>
+                                    <div class="card bg-light mt-2">
+                                        <div class="card-body">
+                                            {{ reported_object.description|linebreaks }}
+                                        </div>
+                                    </div>
+                                {% elif object_type == 'review' %}
+                                    <p><strong>Rating:</strong> {{ reported_object.rating }} ⭐</p>
+                                    <p><strong>By:</strong> {{ reported_object.user.username }}</p>
+                                    <p><strong>For Listing:</strong> {{ reported_object.listing.title }}</p>
+                                    <p><strong>Date:</strong> {{ reported_object.created_at|date:"F d, Y" }}</p>
+                                    <div class="card bg-light mt-2">
+                                        <div class="card-body">
+                                            {{ reported_object.comment|linebreaks|default:"No comment provided." }}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Admin action form -->
+                    <form method="post" class="mt-4">
+                        {% csrf_token %}
+                        <h5>Handle Report</h5>
+                        
+                        <div class="mb-3">
+                            <label for="status" class="form-label">Update Status</label>
+                            <select name="status" id="status" class="form-select">
+                                <option value="PENDING" {% if report.status == 'PENDING' %}selected{% endif %}>Pending</option>
+                                <option value="REVIEWING" {% if report.status == 'REVIEWING' %}selected{% endif %}>Under Review</option>
+                                <option value="RESOLVED" {% if report.status == 'RESOLVED' %}selected{% endif %}>Resolved</option>
+                                <option value="DISMISSED" {% if report.status == 'DISMISSED' %}selected{% endif %}>Dismissed</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="admin_notes" class="form-label">Admin Notes</label>
+                            <textarea name="admin_notes" id="admin_notes" class="form-control" rows="4">{{ report.admin_notes|default:'' }}</textarea>
+                            <div class="form-text">These notes are only visible to administrators.</div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'admin_reports' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-1"></i> Back to Reports
+                            </a>
+                            <button type="submit" name="update_status" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i> Update Report
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

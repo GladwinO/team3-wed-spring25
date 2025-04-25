@@ -83,6 +83,24 @@ class ListingFormTests(TestCase):
         self.assertFalse(form.is_valid())
         self.assertIn("parking_spot_size", form.errors)
 
+    def test_negative_rent_rate(self):
+        """Test that negative rent rates are rejected"""
+        data = self.valid_data.copy()
+        data["rent_per_hour"] = "-10.00"
+        form = ListingForm(data=data)
+        self.assertFalse(form.is_valid())
+        self.assertIn("rent_per_hour", form.errors)
+        self.assertIn("Price per hour must be greater than 0.", str(form.errors))
+
+    def test_zero_rent_rate(self):
+        """Test that zero rent rates are rejected"""
+        data = self.valid_data.copy()
+        data["rent_per_hour"] = "0.00"
+        form = ListingForm(data=data)
+        self.assertFalse(form.is_valid())
+        self.assertIn("rent_per_hour", form.errors)
+        self.assertIn("Price per hour must be greater than 0.", str(form.errors))
+
 
 class ListingSlotFormTests(TestCase):
     def setUp(self):

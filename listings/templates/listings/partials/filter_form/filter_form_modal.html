@@ -1,0 +1,178 @@
+<!-- Advanced Filters Modal -->
+<div class="modal fade" id="advanced-filters-modal" tabindex="-1" aria-labelledby="advancedFiltersModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="advancedFiltersModalLabel">Advanced Filters</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <!-- EV Charger Options -->
+        <div class="filter-group mb-3">
+          <label class="form-label fw-bold">EV Charging
+                        <i class="fas fa-info-circle small" 
+                             data-bs-toggle="popover" 
+                             data-bs-placement="top"
+                             data-bs-html="true"
+                             data-bs-trigger="hover focus"
+                             title="EV Charger Help"
+                             data-bs-content="Select this option to filter listings with an EV charging station.Select charger level and connector type if needed."></i>
+          
+          </label>
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" id="ev_charger" name="has_ev_charger_modal" 
+                  {% if request.GET.has_ev_charger == 'on' %}checked{% endif %}>
+            <label class="form-check-label" for="ev_charger">
+              <i class="fas fa-charging-station me-1"></i> Has EV Charger
+            </label>
+          </div>
+          
+          <div id="ev-options-container" {% if request.GET.has_ev_charger != 'on' %}style="display: none;"{% endif %}>
+            <div class="row g-2">
+              <div class="col-md-6">
+                <select class="form-select" name="charger_level_modal" id="charger_level">
+                  <option value="">Any Charger Level</option>
+                  {% for value, label in charger_level_choices %}
+                    <option value="{{ value }}" {% if request.GET.charger_level == value %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-6">
+                <select class="form-select" name="connector_type_modal" id="connector_type">
+                  <option value="">Any Connector Type</option>
+                  {% for value, label in connector_type_choices %}
+                    <option value="{{ value }}" {% if request.GET.connector_type == value %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Parking Spot Size -->
+        <div class="filter-group mb-3">
+          <label class="form-label fw-bold">
+            <i class="fas fa-car-side me-1"></i> Parking Spot Size
+            <i class="fas fa-info-circle small" 
+                data-bs-toggle="popover" 
+                data-bs-placement="top"
+                data-bs-html="true"
+                data-bs-trigger="hover focus"
+                title="Spot Size Help"
+                data-bs-content="Filter by the size of parking spot you need for your vehicle."></i>
+          </label>
+          <select class="form-select" name="parking_spot_size_modal" id="parking_spot_size">
+            <option value="">Any Size</option>
+            {% for value, label in parking_spot_sizes %}
+              <option value="{{ value }}" {% if request.GET.parking_spot_size == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        
+        <!-- Recurring Booking Options -->
+        <div id="recurring-filter">
+          <div class="filter-group mb-3">
+            <label class="form-label fw-bold">Recurring Booking Details
+              <i class="fas fa-info-circle small" 
+                             data-bs-toggle="popover" 
+                             data-bs-placement="top"
+                             data-bs-html="true"
+                             data-bs-trigger="hover focus"
+                             title="Recurring Booking Help"
+                             data-bs-content="Search a recurring booking by selecting a repeating time slot (daily or weekly) and specifying the start date, start time, and end time."></i>
+            </label>
+            
+            <!-- Start date, Start time, End time -->
+            <div class="row g-2 mb-2">
+              <div class="col-md-4">
+                <label class="form-label small">Start Date*</label>
+                <input type="date" class="form-control" id="recurring_start_date" name="recurring_start_date_modal" 
+                      value="{{ request.GET.recurring_start_date|default_if_none:'' }}">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small">Start Time*</label>
+                <select class="form-select" id="recurring_start_time" name="recurring_start_time_modal">
+                  <option value="">Select time</option>
+                  {% for value, label in half_hour_choices %}
+                    <option value="{{ value }}" {% if request.GET.recurring_start_time == value %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small">End Time*</label>
+                <select class="form-select" id="recurring_end_time" name="recurring_end_time_modal">
+                  <option value="">Select time</option>
+                  {% for value, label in half_hour_choices %}
+                    <option value="{{ value }}" {% if request.GET.recurring_end_time == value %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            
+            <!-- Pattern options with improved layout -->
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+              <label class="form-label mb-0 me-2">Pattern:
+                                <i class="fas fa-info-circle small" 
+                             data-bs-toggle="popover" 
+                             data-bs-placement="top"
+                             data-bs-html="true"
+                             data-bs-trigger="hover focus"
+                             title="Daily/Weekly Pattern Help"
+                             data-bs-content="<strong>Daily:</strong> Filter for the same time slot every day until the end date.<br><br><strong>Weekly:</strong> Filter for the same day of week for a specified number of weeks."></i>
+              
+              </label>
+              
+              <div class="btn-group" role="group">
+                <input type="radio" class="btn-check" name="recurring_pattern_modal" id="pattern_daily" value="daily" 
+                      {% if request.GET.recurring_pattern == "daily" or not request.GET.recurring_pattern %}checked{% endif %}>
+                <label class="btn btn-outline-secondary" for="pattern_daily">Daily</label>
+                
+                <input type="radio" class="btn-check" name="recurring_pattern_modal" id="pattern_weekly" value="weekly"
+                      {% if request.GET.recurring_pattern == "weekly" %}checked{% endif %}>
+                <label class="btn btn-outline-secondary" for="pattern_weekly">Weekly</label>
+              </div>
+              
+              <div id="daily-pattern-fields" class="ms-2" {% if request.GET.recurring_pattern == "weekly" %}style="display:none;"{% endif %}>
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text">Until</span>
+                  <input type="date" class="form-control" id="recurring_end_date" name="recurring_end_date_modal"
+                        value="{{ request.GET.recurring_end_date|default_if_none:'' }}">
+                </div>
+              </div>
+              
+              <div id="weekly-pattern-fields" class="ms-2" {% if request.GET.recurring_pattern != "weekly" %}style="display:none;"{% endif %}>
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text">For 
+
+                  </span>
+                  <input type="number" class="form-control" id="recurring_weeks" name="recurring_weeks_modal" min="1" max="52"
+                        value="{{ request.GET.recurring_weeks|default:'4' }}" style="width: 70px;">
+                  <span class="input-group-text">weeks</span>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Overnight option -->
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="recurring_overnight" name="recurring_overnight_modal" 
+                    {% if request.GET.recurring_overnight %}checked{% endif %}>
+              <label class="form-check-label" for="recurring_overnight">
+                <i class="fas fa-moon me-1"></i> Overnight booking
+                <i class="fas fa-info-circle small" 
+                             data-bs-toggle="popover" 
+                             data-bs-placement="top"
+                             data-bs-html="true"
+                             data-bs-trigger="hover focus"
+                             title="Overnight Booking Help"
+                             data-bs-content="Check this box when looking for spots from evening to morning of the next day (when end time is earlier than start time)."></i>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="apply-advanced-filters">Apply Filters</button>
+      </div>
+    </div>
+  </div>
+</div>

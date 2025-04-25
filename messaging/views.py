@@ -29,7 +29,15 @@ def inbox(request):
 
 @login_required
 def sent_messages(request):
-    messages_sent = Message.objects.filter(sender=request.user).order_by("-created_at")
+    # Get all sent messages except verification requests
+    messages_sent = (
+        Message.objects.filter(sender=request.user)
+        .exclude(
+            subject="Verification Request"  # Hide verification requests from users
+        )
+        .order_by("-created_at")
+    )
+
     context = {"messages_sent": messages_sent}
     return render(request, "messaging/sent_messages.html", context)
 
@@ -102,8 +110,12 @@ def compose_message(request, recipient_id=None):
 def message_detail(request, message_id):
     message = get_object_or_404(Message, pk=message_id)
 
-    # Only allow sender or recipient to view
-    if message.recipient != request.user and message.sender != request.user:
+    # Only allow sender, recipient or admin to view
+    if (
+        message.recipient != request.user
+        and message.sender != request.user
+        and not request.user.is_staff
+    ):
         return HttpResponseForbidden("You are not allowed to view this message.")
 
     # If the current user is the recipient, mark as read

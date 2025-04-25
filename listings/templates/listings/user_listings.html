@@ -1,10 +1,13 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}{{ host.username }}'s Listings{% endblock %}
+{% block title %}
+  {% if request.user.username == host.username %}My Listings{% else %}{{ host.username }}'s Listings{% endif %}
+{% endblock %}
 
 {% block extra_head %}
 <link rel="stylesheet" href="{% static 'listings/css/view_listings.css' %}">
+<link rel="stylesheet" href="{% static 'listings/css/user_listings.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -13,10 +16,17 @@
   <div class="row mb-4">
     <div class="col-12">
       <div class="d-flex align-items-center">
-        <a href="{% url 'public_profile' host.username %}" class="btn btn-sm btn-outline-secondary me-3">
-          <i class="fas fa-arrow-left me-1"></i> Back
-        </a>
-        <h2 class="flex-grow-1 text-center mb-0">{{ host.username }}'s Listings</h2>
+        {% if request.user.username == host.username %}
+          <a href="{% url 'profile' %}" class="btn btn-sm btn-outline-secondary me-3">
+            <i class="fas fa-arrow-left me-1"></i> Back to Profile
+          </a>
+          <h2 class="flex-grow-1 text-center mb-0">My Listings</h2>
+        {% else %}
+          <a href="{% url 'public_profile' host.username %}" class="btn btn-sm btn-outline-secondary me-3">
+            <i class="fas fa-arrow-left me-1"></i> Back
+          </a>
+          <h2 class="flex-grow-1 text-center mb-0">{{ host.username }}'s Listings</h2>
+        {% endif %}
         <!-- Empty div to balance the layout -->
         <div style="width: 80px;"></div>
       </div>
@@ -24,13 +34,28 @@
   </div>
 
   {% if listings %}
-    <div class="listings-container">
-      {% include 'listings/partials/listing_cards.html' with listings=listings is_public_view=True %}
+    <div id="listingsContainer" class="listings-container" data-username="{{ host.username }}">
+      {% include 'listings/partials/listing_cards.html' with listings=listings|slice:":10" is_public_view=True %}
     </div>
+    
+    <!-- Load More Button -->
+    {% if listings.count > 10 %}
+    <div class="load-more-container">
+      <button id="loadMoreBtn" class="btn btn-primary" data-page="2">
+        <i class="fas fa-spinner me-2"></i>Load More
+      </button>
+    </div>
+    {% endif %}
   {% else %}
-    <div class="alert alert-info">
-      <i class="fas fa-info-circle me-2"></i>
-      This host doesn't have any active listings at the moment.
+    <div class="alert alert-info text-center py-4">
+      <i class="fas fa-info-circle fa-2x mb-3 text-secondary"></i>
+      {% if request.user.username == host.username %}
+        <h4>You don't have any listings yet</h4>
+        <p class="mb-3">Start hosting your parking spot today!</p>
+        <a href="{% url 'create_listing' %}" class="btn btn-primary">Post a Spot</a>
+      {% else %}
+        <h4>This host doesn't have any active listings at the moment.</h4>
+      {% endif %}
     </div>
   {% endif %}
 </div>
@@ -38,4 +63,5 @@
 
 {% block scripts %}
 <script src="{% static 'listings/js/view_listings.js' %}"></script>
+<script src="{% static 'listings/js/user_listings.js' %}"></script>
 {% endblock %}
