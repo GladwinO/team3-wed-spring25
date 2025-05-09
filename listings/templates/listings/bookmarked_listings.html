@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Bookmarked Listings{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'listings/css/view_listings.css' %}">
+<link rel="stylesheet" href="{% static 'listings/css/user_listings.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5 mb-5 pb-4">
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="d-flex align-items-center">
+        <h2 class="flex-grow-1 text-center mb-0">Bookmarked Listings</h2>
+        <div style="width: 80px;"></div>
+      </div>
+    </div>
+  </div>
+  
+  {% if listings %}
+    <div id="listingsContainer" class="listings-container" data-username="{{ user.username }}">
+      {% include 'listings/partials/listing_cards.html' with listings=listings bookmarked_listings=bookmarked_listings %}
+    </div>
+    
+    <!-- Add load more button after listings container -->
+    {% if listings.has_next %}
+    <div class="text-center my-4">
+      <button id="loadMoreBtn" class="btn btn-outline-primary" 
+              data-next-page="{{ listings.next_page_number }}">
+        <i class="fas fa-plus-circle me-1"></i>Load More Bookmarks
+      </button>
+    </div>
+    {% endif %}
+  {% else %}
+    <div class="alert alert-info text-center py-4">
+      <i class="fas fa-bookmark fa-2x mb-3 text-secondary"></i>
+      <h4>You haven't bookmarked any listings yet</h4>
+      <p class="mb-3">When you find spots you're interested in, bookmark them to view later!</p>
+      <a href="{% url 'view_listings' %}" class="btn btn-primary">Browse Listings</a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'listings/js/view_listings.js' %}"></script>
+<script src="{% static 'listings/js/bookmarks.js' %}"></script>
+{% csrf_token %}
+{% endblock %}

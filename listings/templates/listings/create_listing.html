@@ -18,20 +18,40 @@
             </a>
         </div>
     </div>
-    {% else %} {% if form.errors %}
-    <div class="alert alert-danger">
-        <i class="fas fa-exclamation-circle me-2"></i> Please correct the errors below:
-        <ul class="mb-0 mt-2">
-            {% for field, errors in form.errors.items %}
-            <li>{{ errors|join:", " }}</li>
-            {% endfor %}
-        </ul>
-    </div>
-    {% endif %}
-
+    {% else %} 
     <div class="card shadow-sm border-0">
         <div class="card-body p-4">
-            <form method="POST" id="create-listing-form">
+            {% if form.errors or alert_message or is_recurring and recurring_form.errors or not is_recurring and slot_formset.errors %}
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-circle me-2"></i> <strong>Please correct the following errors:</strong>
+                <ul class="mb-0 mt-2">
+                    {% if alert_message %}
+                        <li>{{ alert_message }}</li>
+                    {% endif %}
+                    
+                    {% for field, errors in form.errors.items %}
+                        <li><strong>{{ field|title }}</strong>: {{ errors|join:", " }}</li>
+                    {% endfor %}
+                    
+                    {% if not is_recurring %}
+                        {% for form_errors in slot_formset.errors %}
+                            {% for field, errors in form_errors.items %}
+                                {% if errors %}
+                                    <li><strong>Time Slot - {{ field|title }}</strong>: {{ errors|join:", " }}</li>
+                                {% endif %}
+                            {% endfor %}
+                        {% endfor %}
+                    {% endif %}
+                    
+                    {% if is_recurring %}
+                        {% for field, errors in recurring_form.errors.items %}
+                            <li><strong>Recurring {{ field|slice:"10:"|title }}</strong>: {{ errors|join:", " }}</li>
+                        {% endfor %}
+                    {% endif %}
+                </ul>
+            </div>
+            {% endif %}
+            <form method="POST" id="create-listing-form" data-is-recurring="{{ is_recurring|yesno:'true,false' }}" novalidate>
                 {% csrf_token %}
 
                 <h4 class="section-header">
@@ -44,12 +64,26 @@
                             <label for="{{ form.title.id_for_label }}" class="form-label">
                   <i class="fas fa-heading text-secondary me-1"></i> Spot Title
                 </label> {{ form.title|add_class:"form-control"|attr:"placeholder:Short, descriptive title (e.g. Downtown Covered Spot)" }}
+                            {% if form.title.errors %}
+                                <div class="text-danger mt-1">
+                                    {% for error in form.title.errors %}
+                                        <small><i class="fas fa-exclamation-circle"></i> {{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                         </div>
 
                         <div class="mb-3">
                             <label for="{{ form.rent_per_hour.id_for_label }}" class="form-label">
                   <i class="fas fa-tag text-secondary me-1"></i> Price per Hour ($)
                 </label> {{ form.rent_per_hour|add_class:"form-control"|attr:"placeholder:10.00" }}
+                            {% if form.rent_per_hour.errors %}
+                                <div class="text-danger mt-1">
+                                    {% for error in form.rent_per_hour.errors %}
+                                        <small><i class="fas fa-exclamation-circle"></i> {{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                         </div>
                     </div>
 
@@ -58,21 +92,35 @@
                             <label for="{{ form.description.id_for_label }}" class="form-label">
                   <i class="fas fa-align-left text-secondary me-1"></i> Description
                 </label> {{ form.description|add_class:"form-control"|attr:"placeholder:Describe your spot (size, access instructions, features)"|attr:"rows:5" }}
+                            {% if form.description.errors %}
+                                <div class="text-danger mt-1">
+                                    {% for error in form.description.errors %}
+                                        <small><i class="fas fa-exclamation-circle"></i> {{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
 
                 <div class="row mb-4">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="mb-3">
                             <label for="{{ form.parking_spot_size.id_for_label }}" class="form-label">
                                 <i class="fas fa-car-side text-primary me-1"></i> Parking Spot Size
                             </label>
                             {{ form.parking_spot_size }}
+                            {% if form.parking_spot_size.errors %}
+                                <div class="text-danger mt-1">
+                                    {% for error in form.parking_spot_size.errors %}
+                                        <small><i class="fas fa-exclamation-circle"></i> {{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                         </div>
                     </div>
 
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="mb-3">
                             <label for="{{ form.has_ev_charger.id_for_label }}" class="form-label">
                                 <i class="fas fa-charging-station text-primary me-1"></i> EV Charger Available
@@ -80,24 +128,45 @@
                             <div class="form-check">
                                 {{ form.has_ev_charger|add_class:"form-check-input" }}
                             </div>
+                            {% if form.has_ev_charger.errors %}
+                                <div class="text-danger mt-1">
+                                    {% for error in form.has_ev_charger.errors %}
+                                        <small><i class="fas fa-exclamation-circle"></i> {{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                         </div>
                     </div>
 
-                    <div class="col-md-4 charger-level-container">
+                    <div class="col-md-3 charger-level-container">
                         <div class="mb-3">
                             <label for="{{ form.charger_level.id_for_label }}" class="form-label">
                                 <i class="fas fa-bolt text-primary me-1"></i> Charger Level
                             </label>
                             {{ form.charger_level }}
+                            {% if form.charger_level.errors %}
+                                <div class="text-danger mt-1">
+                                    {% for error in form.charger_level.errors %}
+                                        <small><i class="fas fa-exclamation-circle"></i> {{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                         </div>
                     </div>
 
-                    <div class="col-md-4 connector-type-container">
+                    <div class="col-md-3 connector-type-container">
                         <div class="mb-3">
                             <label for="{{ form.connector_type.id_for_label }}" class="form-label">
                                 <i class="fas fa-plug text-primary me-1"></i> Connector Type
                             </label>
                             {{ form.connector_type }}
+                            {% if form.connector_type.errors %}
+                                <div class="text-danger mt-1">
+                                    {% for error in form.connector_type.errors %}
+                                        <small><i class="fas fa-exclamation-circle"></i> {{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -131,16 +200,165 @@
                     <label for="{{ form.location.id_for_label }}" class="form-label">
               <i class="fas fa-map-pin text-secondary me-1"></i> Selected Location
             </label> {{ form.location|add_class:"form-control"|attr:"readonly:readonly" }}
+                    {% if form.location.errors %}
+                        <div class="text-danger mt-1">
+                            {% for error in form.location.errors %}
+                                <small><i class="fas fa-exclamation-circle"></i> {{ error }}</small>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
                 </div>
 
                 <h4 class="section-header">
-                    <i class="fas fa-calendar-alt me-2"></i>Availability Slots
+                    <i class="fas fa-calendar-alt me-2"></i>Availability
                 </h4>
 
-                <div class="mb-3">
-                    <p class="text-muted small">
-                        <i class="fas fa-info-circle me-1"></i> Define when your parking spot is available for booking. Add multiple slots if availability varies.
-                    </p>
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-body p-3">
+                        <!-- Recurring toggle button -->
+                        <div class="mb-3">
+                            <button type="button" class="btn btn-outline-primary" id="toggle-recurring">
+                                <i class="fas fa-redo me-1"></i> Make Recurring
+                            </button>
+                            <small class="text-muted ms-2" id="toggle-info-text">
+                                <i class="fas fa-info-circle"></i> Create multiple availability slots following a pattern
+                            </small>
+                            <!-- Hidden field to indicate this is recurring -->
+                            <input type="hidden" id="is_recurring" name="is_recurring" value="false">
+                        </div>
+
+                        <!-- Single slot container (default) -->
+                        <div id="single-slot-container">
+                            <p class="text-muted small mb-3" id="single-info-text">
+                                <i class="fas fa-info-circle me-1"></i> Define when your parking spot is available for booking. Add multiple slots if availability varies.
+                            </p>
+                        </div>
+
+                        <!-- Recurring pattern container (hidden initially) -->
+                        <div id="recurring-pattern-container" style="display: none;" class="mb-4">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">Start Date</label>
+                                    {{ recurring_form.recurring_start_date }}
+                                    {% if recurring_form.recurring_start_date.errors %}
+                                        <div class="text-danger mt-1">
+                                            {% for error in recurring_form.recurring_start_date.errors %}
+                                                <small><i class="fas fa-exclamation-circle"></i> {{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Start Time</label>
+                                    <select name="recurring_start_time" id="recurring_start_time" class="form-select">
+                                        {% for time_value, time_display in form.fields.time_choices.choices %}
+                                            <option value="{{ time_value }}">{{ time_display }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    {% if recurring_form.recurring_start_time.errors %}
+                                        <div class="text-danger mt-1">
+                                            {% for error in recurring_form.recurring_start_time.errors %}
+                                                <small><i class="fas fa-exclamation-circle"></i> {{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">End Time</label>
+                                    <select name="recurring_end_time" id="recurring_end_time" class="form-select">
+                                        {% for time_value, time_display in form.fields.time_choices.choices %}
+                                            <option value="{{ time_value }}">{{ time_display }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    {% if recurring_form.recurring_end_time.errors %}
+                                        <div class="text-danger mt-1">
+                                            {% for error in recurring_form.recurring_end_time.errors %}
+                                                <small><i class="fas fa-exclamation-circle"></i> {{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="recurring_overnight" name="recurring_overnight">
+                                        <label class="form-check-label" for="recurring_overnight">
+                                            <i class="fas fa-moon me-1"></i> Overnight availability
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            {% if recurring_form.recurring_overnight.errors %}
+                                <div class="text-danger mt-1">
+                                    {% for error in recurring_form.recurring_overnight.errors %}
+                                        <small><i class="fas fa-exclamation-circle"></i> {{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <label class="form-label">Recurring Pattern</label>
+                                    <div class="d-flex align-items-center">
+                                        <!-- Daily Pattern -->
+                                        <div class="form-check form-check-inline me-4">
+                                            <input class="form-check-input" type="radio" name="recurring_pattern" id="pattern_daily" value="daily" checked>
+                                            <label class="form-check-label" for="pattern_daily">
+                                                Daily
+                                            </label>
+                                        </div>
+                                        <!-- Daily Pattern Fields -->
+                                        <div id="daily-pattern-fields" class="me-4">
+                                            <div class="input-group">
+                                                <span class="input-group-text">Until</span>
+                                                {{ recurring_form.recurring_end_date }}
+                                                {% if recurring_form.recurring_end_date.errors %}
+                                                    <div class="text-danger mt-1">
+                                                        {% for error in recurring_form.recurring_end_date.errors %}
+                                                            <small><i class="fas fa-exclamation-circle"></i> {{ error }}</small>
+                                                        {% endfor %}
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        <!-- Weekly Pattern -->
+                                        <div class="form-check form-check-inline me-4">
+                                            <input class="form-check-input" type="radio" name="recurring_pattern" id="pattern_weekly" value="weekly">
+                                            <label class="form-check-label" for="pattern_weekly">
+                                                Weekly
+                                            </label>
+                                        </div>
+                                        <!-- Weekly Pattern Fields -->
+                                        <div id="weekly-pattern-fields" style="display: none;">
+                                            <div class="input-group">
+                                                <span class="input-group-text">For</span>
+                                                <input type="number" class="form-control" id="recurring_weeks" name="recurring_weeks" min="1" max="52" value="4" required>
+                                                <span class="input-group-text">weeks</span>
+                                            </div>
+                                            {% if recurring_form.recurring_weeks.errors %}
+                                                <div class="text-danger mt-1">
+                                                    {% for error in recurring_form.recurring_weeks.errors %}
+                                                        <small><i class="fas fa-exclamation-circle"></i> {{ error }}</small>
+                                                    {% endfor %}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    {% if recurring_form.recurring_pattern.errors %}
+                                        <div class="text-danger mt-1">
+                                            {% for error in recurring_form.recurring_pattern.errors %}
+                                                <small><i class="fas fa-exclamation-circle"></i> {{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {{ slot_formset.management_form }}
@@ -162,9 +380,23 @@
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">Start Date</label> {{ slot_form.start_date|add_class:"form-control" }}
+                                        {% if slot_form.start_date.errors %}
+                                            <div class="text-danger mt-1">
+                                                {% for error in slot_form.start_date.errors %}
+                                                    <small><i class="fas fa-exclamation-circle"></i> {{ error }}</small>
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
                                     </div>
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">End Date</label> {{ slot_form.end_date|add_class:"form-control" }}
+                                        {% if slot_form.end_date.errors %}
+                                            <div class="text-danger mt-1">
+                                                {% for error in slot_form.end_date.errors %}
+                                                    <small><i class="fas fa-exclamation-circle"></i> {{ error }}</small>
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </div>
@@ -172,9 +404,23 @@
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">Start Time</label> {{ slot_form.start_time|add_class:"form-select" }}
+                                        {% if slot_form.start_time.errors %}
+                                            <div class="text-danger mt-1">
+                                                {% for error in slot_form.start_time.errors %}
+                                                    <small><i class="fas fa-exclamation-circle"></i> {{ error }}</small>
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
                                     </div>
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">End Time</label> {{ slot_form.end_time|add_class:"form-select" }}
+                                        {% if slot_form.end_time.errors %}
+                                            <div class="text-danger mt-1">
+                                                {% for error in slot_form.end_time.errors %}
+                                                    <small><i class="fas fa-exclamation-circle"></i> {{ error }}</small>
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </div>
@@ -194,7 +440,7 @@
                     <a href="{% url 'view_listings' %}" class="btn btn-secondary">
                         <i class="fas fa-times me-1"></i> Cancel
                     </a>
-                    <button type="submit" class="btn btn-primary px-4">
+                    <button type="submit" class="btn btn-primary px-4" id="createListingBtn">
               <i class="fas fa-check me-1"></i> Post Parking Spot
             </button>
                 </div>
@@ -208,6 +454,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <!-- NYC Map Bounds -->
 <script src="{% static 'listings/js/map_utils.js' %}"></script>
-<script src="{% static 'listings/js/listing-form-shared.js' %}"></script>
+<script src="{% static 'listings/js/listing-form-shared.js' %}?v=4"></script>
 <script src="{% static 'listings/js/create_listings.js' %}"></script>
+<script src="{% static 'listings/js/prevent_duplicate_submit.js' %}"></script>
 {% endblock %}

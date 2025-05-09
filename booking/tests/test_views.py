@@ -161,6 +161,24 @@ class ViewsTests(TestCase):
         # Expecting the form to re-render with errors.
         self.assertEqual(response.status_code, 200)
 
+    def test_booking_form_email_autofill(self):
+        """Test that the booking form is pre-filled with the user's email."""
+        # Set an email for the non_owner user
+        self.non_owner.email = "test@example.com"
+        self.non_owner.save()
+
+        # Log in using the same pattern as other tests
+        self.client.login(username=self.non_owner.username, password="pass123")
+
+        # Get the booking form page
+        url = reverse("book_listing", kwargs={"listing_id": self.listing.id})
+        response = self.client.get(url)
+
+        # Check that the form has the user's email pre-filled
+        self.assertEqual(
+            response.context["booking_form"].initial["email"], "test@example.com"
+        )
+
     # ---------------------- cancel_booking ----------------------
     def test_cancel_booking(self):
         self.client.login(username=self.non_owner.username, password="pass123")
@@ -405,6 +423,83 @@ class ViewsTests(TestCase):
         self.assertGreaterEqual(len(bookings_list), 1)
         for b in bookings_list:
             self.assertTrue(hasattr(b, "slots_info"))
+
+    def test_my_bookings_priority_order(self):
+        """Test that bookings are displayed in the expected priority order."""
+        self.client.login(username=self.non_owner.username, password="pass123")
+
+        # Create 3 bookings with different statuses for non_owner
+        # 1. Approved booking without review
+        booking1 = Booking.objects.create(
+            user=self.non_owner,
+            listing=self.listing,
+            email="nonowner@example.com",
+            total_price=10.00,
+            status="APPROVED",
+        )
+        BookingSlot.objects.create(
+            booking=booking1,
+            start_date=self.slot_date,
+            start_time=dt.time(8, 0),
+            end_date=self.slot_date,
+            end_time=dt.time(9, 0),
+        )
+
+        # 2. Pending booking
+        booking2 = Booking.objects.create(
+            user=self.non_owner,
+            listing=self.listing,
+            email="nonowner@example.com",
+            total_price=10.00,
+            status="PENDING",
+        )
+        BookingSlot.objects.create(
+            booking=booking2,
+            start_date=self.slot_date,
+            start_time=dt.time(9, 0),
+            end_date=self.slot_date,
+            end_time=dt.time(10, 0),
+        )
+
+        # 3. Approved booking with review
+        booking3 = Booking.objects.create(
+            user=self.non_owner,
+            listing=self.listing,
+            email="nonowner@example.com",
+            total_price=10.00,
+            status="APPROVED",
+        )
+        BookingSlot.objects.create(
+            booking=booking3,
+            start_date=self.slot_date,
+            start_time=dt.time(10, 0),
+            end_date=self.slot_date,
+            end_time=dt.time(11, 0),
+        )
+
+        # Add a review for booking3
+        Review.objects.create(
+            booking=booking3,
+            listing=self.listing,
+            user=self.non_owner,
+            rating=5,
+        )
+
+        # Get my_bookings page
+        response = self.client.get(reverse("my_bookings"))
+        self.assertEqual(response.status_code, 200)
+
+        # Check bookings order in context
+        bookings = response.context["bookings"]
+        self.assertEqual(len(bookings), 3)
+
+        # Verify correct priority order:
+        # 1. Approved unreviewed (booking1)
+        # 2. Other bookings (booking2)
+        # 3. Approved reviewed (booking3)
+        self.assertEqual(bookings[0].id, booking1.id)
+        self.assertEqual(bookings[1].id, booking2.id)
+        self.assertEqual(bookings[2].id, booking3.id)
 
 
 class RecurringBookingTests(TestCase):

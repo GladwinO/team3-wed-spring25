@@ -1,21 +1,71 @@
 {% extends "base.html" %}
 {% load static %}
+
 {% block content %}
-  <h1>Compose Message</h1>
+  {% if is_admin_message %}
+    <h1>Message Administrator</h1>
+    <div class="alert alert-info">
+      This message will be sent to the site administrators.
+    </div>
+  {% else %}
+    <h1>Compose Message</h1>
+  {% endif %}
+  
   <form method="POST" novalidate>
     {% csrf_token %}
+    
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger">
+      {% for error in form.non_field_errors %}
+        {{ error }}
+      {% endfor %}
+    </div>
+    {% endif %}
+    
+    {% if not is_admin_message %}
     <div class="mb-3">
-      <label for="id_recipient" class="form-label">Recipient</label>
+      <label for="id_recipient" class="form-label">Recipient *</label>
       {{ form.recipient }}
+      {% if form.recipient.errors %}
+        <div class="text-danger">
+          {% for error in form.recipient.errors %}
+            {{ error }}
+          {% endfor %}
+        </div>
+      {% endif %}
     </div>
+    {% else %}
+      {{ form.recipient }}
+    {% endif %}
+    
     <div class="mb-3">
-      <label for="id_subject" class="form-label">Subject</label>
+      <label for="id_subject" class="form-label">Subject *</label>
       {{ form.subject }}
+      {% if form.subject.errors %}
+        <div class="text-danger">
+          {% for error in form.subject.errors %}
+            {{ error }}
+          {% endfor %}
+        </div>
+      {% endif %}
     </div>
+    
     <div class="mb-3">
-      <label for="id_body" class="form-label">Message</label>
+      <label for="id_body" class="form-label">Message *</label>
       {{ form.body }}
+      {% if form.body.errors %}
+        <div class="text-danger">
+          {% for error in form.body.errors %}
+            {{ error }}
+          {% endfor %}
+        </div>
+      {% endif %}
     </div>
-    <button type="submit" class="btn btn-primary">Send</button>
+    
+    <button type="submit" class="btn btn-primary" id="sendButton">Send</button>
   </form>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{% static 'messaging/js/prevent_duplicate_submit.js' %}"></script>
 {% endblock %}

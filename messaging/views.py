@@ -4,6 +4,7 @@ from django.http import HttpResponseForbidden
 from .models import Message
 from .forms import MessageForm
 from django.contrib.auth import get_user_model
+from django import forms
 
 
 User = get_user_model()
@@ -43,30 +44,50 @@ def sent_messages(request):
 
 
 @login_required
-def compose_message(request, recipient_id=None):
-    # Get owners whose listings the user has booked
-    booked_owners = User.objects.filter(listing__booking__user=request.user).distinct()
+def compose_message(request, recipient_id=None, admin_message=False):
+    # Check if current user is an admin
+    is_admin = request.user.is_staff
 
-    # Get users who have booked the user's listings
-    booking_users = User.objects.filter(booking__listing__user=request.user).distinct()
+    # For admin messages to support, we need an admin user
+    admin = None
+    if admin_message:
+        admin = User.objects.filter(is_staff=True).first()
+        if not admin:
+            request.session["error_message"] = "No admin users found in the system."
+            return redirect("inbox")
 
-    # Combine the lists and remove duplicates
-    available_recipients = (
-        (booked_owners | booking_users).exclude(id=request.user.id).distinct()
-    )
-
-    # If no recipients available and no specific recipient_id provided, redirect
-    if not available_recipients.exists() and not recipient_id:
-        request.session["error_message"] = (
-            """You don't have any users to message yet. You need to either book
-            a listing or have someone book your listing first."""
+    # Determine available recipients
+    if is_admin:
+        # Admins can message anyone
+        available_recipients = User.objects.all().exclude(id=request.user.id)
+    elif not admin_message:
+        # Regular users can only message people they've had booking interactions with
+        booked_owners = User.objects.filter(
+            listing__booking__user=request.user
+        ).distinct()
+        booking_users = User.objects.filter(
+            booking__listing__user=request.user
+        ).distinct()
+        available_recipients = (
+            (booked_owners | booking_users).exclude(id=request.user.id).distinct()
         )
-        return redirect("inbox")
 
+        # If no recipients available and no specific recipient_id provided, redirect
+        if not available_recipients.exists() and not recipient_id:
+            request.session["error_message"] = (
+                "You don't have any users to message yet. You need to either book "
+                "a listing or have someone book your listing first."
+            )
+            return redirect("inbox")
+    else:
+        # For admin support messages, no need to check available_recipients
+        available_recipients = User.objects.filter(is_staff=True)
+
+    # Prepare initial data
     initial_data = {}
-
-    # If recipient_id is provided, get the user and pre-fill form
-    if recipient_id:
+    if admin_message:
+        initial_data = {"subject": "Support Request: ", "recipient": admin.id}
+    elif recipient_id:
         recipient = get_object_or_404(User, pk=recipient_id)
         # Check if recipient is in available_recipients or is an admin
         if recipient in available_recipients or recipient.is_staff:
@@ -79,29 +100,46 @@ def compose_message(request, recipient_id=None):
 
     if request.method == "POST":
         form = MessageForm(request.POST)
-        # Set the queryset before validation
-        form.fields["recipient"].queryset = available_recipients
-        if form.is_valid():
-            recipient = form.cleaned_data["recipient"]
 
-            # Verify recipient is in the allowed list
-            if recipient in available_recipients or recipient.is_staff:
-                new_message = form.save(commit=False)
-                new_message.sender = request.user
-                new_message.save()
-                request.session["success_message"] = "Message sent successfully!"
-                return redirect("inbox")
+        # For admin messages, set recipient to admin
+        if admin_message:
+            form.data = form.data.copy()  # Make mutable copy
+            form.data["recipient"] = admin.id  # Set recipient to admin ID
+        else:
+            # Regular message - set queryset for validation
+            form.fields["recipient"].queryset = available_recipients
+
+        if form.is_valid():
+            new_message = form.save(commit=False)
+            new_message.sender = request.user
+
+            if admin_message:
+                new_message.recipient = admin
+                # Prefix subject for admin messages
+                new_message.subject = f"[USER SUPPORT MESSAGE] {form.cleaned_data['subject'] or 'No Subject'}"
+                success_msg = "Message sent to site administrators."
             else:
-                form.add_error("recipient", "You cannot message this user.")
+                success_msg = "Message sent successfully!"
+
+            new_message.save()
+            request.session["success_message"] = success_msg
+            return redirect("inbox")
     else:
-        # Create form with initial data if recipient is specified
+        # Create form with initial data
         form = MessageForm(initial=initial_data)
-        # Set the queryset for GET requests
-        form.fields["recipient"].queryset = available_recipients
+
+        if not admin_message:
+            # Set the queryset for GET requests in regular messages
+            form.fields["recipient"].queryset = available_recipients
+
+    # For admin messages, hide the recipient field
+    if admin_message:
+        form.fields["recipient"].widget = forms.HiddenInput()
 
     context = {
         "form": form,
-        "available_recipients": available_recipients,
+        "is_admin_message": admin_message,
+        "available_recipients": available_recipients if not admin_message else None,
     }
     return render(request, "messaging/compose_message.html", context)
 

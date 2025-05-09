@@ -364,43 +364,57 @@ button.btn-primary.active {
 
 
 /* Chevron flips on hover */
+
 .dropdown:hover .chevron-icon {
     transform: rotate(180deg);
 }
 
+
 /* Maintain existing behavior for open dropdowns */
+
 .dropdown.show .chevron-icon {
     transform: rotate(180deg);
 }
 
+
 /* Make dropdown menus appear on hover */
+
 .dropdown:hover .dropdown-menu {
     display: block;
 }
 
+
 /* Small animation for smoother appearance */
+
 .dropdown-menu {
     margin-top: 0;
     transition: all 0.15s ease-in-out;
 }
 
+
 /* Add transition for the chevron icon if it doesn't exist already */
+
 .chevron-icon {
     transition: transform 0.25s ease;
 }
 
+
 /* Keep the underline visible when hovering over the entire dropdown */
+
 .dropdown:hover .nav-link::after {
     width: calc(100% - 2rem) !important;
 }
 
+
 /* Keep the text color consistent when hovering over the dropdown */
+
 .dropdown:hover .nav-link {
     color: var(--color-primary) !important;
 }
 
 
 /* Enhanced notification dot styling */
+
 .notification-indicator {
     position: absolute;
     width: 8px;
@@ -412,12 +426,132 @@ button.btn-primary.active {
     border: none;
 }
 
+
 /* Make the dropdown hover more forceful by being more specific */
+
 .navbar .navbar-nav .dropdown:hover .dropdown-menu {
     display: block !important;
 }
 
+
 /* Same for the chevron rotation */
+
 .navbar .navbar-nav .dropdown:hover .chevron-icon {
     transform: rotate(180deg) !important;
+}
+
+
+/* Error page styling */
+
+.error-page-icon {
+    font-size: 5rem;
+    color: var(--color-primary);
+    opacity: 0.8;
+}
+
+.error-page-heading {
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+}
+
+
+/* Rating stars */
+
+.rating-stars-sm {
+    display: inline-flex;
+    align-items: center;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 1rem;
+}
+
+.rating-stars-sm::before {
+    content: "☆☆☆☆☆";
+    font-family: 'Courier New', Courier, monospace;
+    color: #ddd;
+}
+
+.rating-stars-sm[data-rating="1"]::before {
+    content: "★☆☆☆☆";
+    color: var(--color-accent);
+}
+
+.rating-stars-sm[data-rating="2"]::before {
+    content: "★★☆☆☆";
+    color: var(--color-accent);
+}
+
+.rating-stars-sm[data-rating="3"]::before {
+    content: "★★★☆☆";
+    color: var(--color-accent);
+}
+
+.rating-stars-sm[data-rating="4"]::before {
+    content: "★★★★☆";
+    color: var(--color-accent);
+}
+
+.rating-stars-sm[data-rating="5"]::before {
+    content: "★★★★★";
+    color: var(--color-accent);
+}
+
+
+/* Add support for decimal ratings */
+
+.rating-stars-sm[data-rating="4.5"]::before {
+    content: "★★★★½";
+    color: var(--color-accent);
+}
+
+.rating-stars-sm[data-rating="3.5"]::before {
+    content: "★★★½☆";
+    color: var(--color-accent);
+}
+
+.rating-stars-sm[data-rating="2.5"]::before {
+    content: "★★½☆☆";
+    color: var(--color-accent);
+}
+
+.rating-stars-sm[data-rating="1.5"]::before {
+    content: "★½☆☆☆";
+    color: var(--color-accent);
+}
+
+.rating-stars-sm[data-rating="0.5"]::before {
+    content: "½☆☆☆☆";
+    color: var(--color-accent);
+}
+
+
+/* Add support for string ratings */
+
+.rating-stars-sm[data-rating="5.0"]::before {
+    content: "★★★★★";
+    color: var(--color-accent);
+}
+
+.rating-stars-sm[data-rating="4.0"]::before {
+    content: "★★★★☆";
+    color: var(--color-accent);
+}
+
+.rating-stars-sm[data-rating="3.0"]::before {
+    content: "★★★☆☆";
+    color: var(--color-accent);
+}
+
+.rating-stars-sm[data-rating="2.0"]::before {
+    content: "★★☆☆☆";
+    color: var(--color-accent);
+}
+
+.rating-stars-sm[data-rating="1.0"]::before {
+    content: "★☆☆☆☆";
+    color: var(--color-accent);
+}
+
+.rating-stars-sm[data-rating="0.0"]::before {
+    content: "☆☆☆☆☆";
+    color: #ddd;
 }

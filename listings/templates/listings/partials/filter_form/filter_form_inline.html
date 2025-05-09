@@ -101,86 +101,97 @@
                 <!-- Add these fields after the Max Price field -->
                 <div class="filter-group mb-3">
                   <div class="row g-2">
-
-                    <div class="col-md-3">
-                  <label for="max_price" class="form-label">
-                     <i class="fas fa-tag me-1"></i>Max Price ($/hr)                          
-                     <i class="fas fa-info-circle small" 
-                             data-bs-toggle="popover" 
-                             data-bs-placement="top"
-                             data-bs-html="true"
-                             data-bs-trigger="hover focus"
-                             title="Price Help"
-                             data-bs-content="Set a maximum price per hour to filter results by cost."></i>
-                  </label>
-                  <input type="number" 
-                        step="0.01" 
-                        class="form-control" 
-                        id="max_price" 
-                        name="max_price"
-                        value="{{ request.GET.max_price|default_if_none:'' }}" 
-                        placeholder="Any price">
+                    <!-- Max Price -->
+                    <div class="col-lg-3 col-md-6 col-12">
+                      <label for="max_price" class="form-label small">
+                         <i class="fas fa-tag me-1"></i>Max Price
+                         <i class="fas fa-info-circle" 
+                            data-bs-toggle="popover" 
+                            data-bs-placement="top"
+                            data-bs-html="true"
+                            data-bs-trigger="hover focus"
+                            title="Price Help"
+                            data-bs-content="Set a maximum price per hour."></i>
+                      </label>
+                      <input type="number" 
+                            step="0.01" 
+                            class="form-control form-control-sm" 
+                            id="max_price" 
+                            name="max_price"
+                            value="{{ request.GET.max_price|default_if_none:'' }}" 
+                            placeholder="Any price">
                     </div>
-                    <div class="col-md-3">
-                      <div class="d-flex justify-content-between align-items-center">
-                        <label for="start_date" class="form-label mb-0">
-                          <i class="fas fa-calendar-day me-1"></i> Date
-                        </label>
-                        <div class="form-check form-switch ms-2 mb-0">
-                          <input class="form-check-input" type="checkbox" id="enable-multiple-days" name="multiple_days" {% if multiple_days %}checked{% endif %}>
-                          <label class="form-check-label small" for="enable-multiple-days">Multiple</label>
-                        </div>
-                        <button type="button" class="btn btn-link text-secondary p-0 ms-1" 
-                                data-bs-toggle="popover" 
-                                data-bs-placement="top"
-                                data-bs-html="true"
-                                data-bs-trigger="hover focus"
-                                title="Date Help"
-                                data-bs-content="Select a single date or enable 'Multiple days' to search for a continuous period spanning multiple days. <br><br>If 'Multiple days' is selected, the start time will be on the first day and the end time on the last day.">
-                          <i class="fas fa-info-circle small"></i>
-                        </button>
+                    
+                    <!-- Date Field -->
+                    <div class="col-lg-3 col-md-6 col-12">
+                      <label for="start_date" class="form-label small d-inline-block">
+                        <i class="fas fa-calendar-day me-1"
+                                              data-bs-toggle="popover" 
+                         data-bs-placement="top"
+                         data-bs-html="true"
+                         data-bs-trigger="hover focus"
+                         title="Date Help"
+                         data-bs-content="Select a date or enable Multi for a range."
+                        
+                        ></i>Date
+                                              {% comment %} <i class="fas fa-info-circle" 
+   >
+                          {% endcomment %}
+                         </i>
+                      </label>
+                      <div class="form-check form-switch d-inline-block ms-1 align-middle">
+                        <input class="form-check-input" type="checkbox" id="multipleDaysToggle" name="multiple_days" {% if request.GET.multiple_days == 'on' or multiple_days %}checked{% endif %}>
+                        <label class="form-check-label small" for="multipleDaysToggle">Multi</label>
+                      </div>
+
+                      
+                      <!-- Single date input -->
+                      <div id="single-date-container" style="display: {% if request.GET.multiple_days == 'on' or multiple_days %}none{% else %}block{% endif %};">
+                        <input type="date" class="form-control form-control-sm" name="start_date_single" id="single_start_date" value="{{ start_date }}">
                       </div>
                       
-                      <!-- Single date input (default) -->
-                      <div id="single-date-container" class="mt-2" {% if multiple_days %}style="display: none;"{% endif %}>
-                        <input type="date" class="form-control" name="start_date" id="single_start_date" value="{{ start_date }}">
-                      </div>
-                      <input type="hidden" name="end_date" id="single_end_date" value="{{ start_date }}">
-                      
-                      <!-- Multiple days inputs (shown when toggle is enabled) -->
-                      <div id="multiple-days-container" class="row g-2 mt-2" {% if not multiple_days %}style="display: none;"{% endif %}>
+                      <!-- Multiple days inputs -->
+                      <div id="multiple-days-container" class="row g-0" style="display: {% if request.GET.multiple_days == 'on' or multiple_days %}flex{% else %}none{% endif %};">
                         <div class="col-6 pe-1">
-                          <input type="date" class="form-control form-control-sm" placeholder="Start" name="start_date" id="multi_start_date" value="{{ start_date }}">
+                          <input type="date" class="form-control form-control-sm" placeholder="Start" name="start_date_multi" id="multi_start_date" value="{{ start_date }}">
                         </div>
                         <div class="col-6 ps-1">
-                          <input type="date" class="form-control form-control-sm" placeholder="End" name="end_date" id="multi_end_date" value="{{ end_date|default:start_date }}">
+                          <input type="date" class="form-control form-control-sm" placeholder="End" name="end_date_multi" id="multi_end_date" value="{{end_date}}">
                         </div>
                       </div>
+                      
+                      <!-- Hidden inputs that will always be submitted -->
+                      <input type="hidden" name="start_date" id="real_start_date" value="{{ start_date }}">
+                      <input type="hidden" name="end_date" id="real_end_date" value="{{ end_date }}">
                     </div>
-                    <div class="col-md-3">
-                      <label class="form-label">
-                        <i class="fas fa-clock me-1"></i> Start Time
+                    
+                    <!-- Start Time -->
+                    <div class="col-lg-3 col-md-6 col-12">
+                      <label class="form-label small">
+                        <i class="fas fa-clock me-1"></i>Start
                       </label>
-                      <select class="form-select" name="start_time" id="start_time">
+                      <select class="form-control form-control-sm" name="start_time" id="start_time">
                         <option value="">Any time</option>
                         {% for value, label in half_hour_choices %}
                           <option value="{{ value }}" {% if start_time == value %}selected{% endif %}>{{ label }}</option>
                         {% endfor %}
                       </select>
                     </div>
-                    <div class="col-md-3">
-                      <label class="form-label">
-                        <i class="fas fa-hourglass-end me-1"></i> End Time
+                    
+                    <!-- End Time -->
+                    <div class="col-lg-3 col-md-6 col-12">
+                      <label class="form-label small">
+                        <i class="fas fa-hourglass-end me-1"></i>End
                       </label>
-                      <select class="form-select" name="end_time" id="end_time">
+                      <select class="form-control form-control-sm" name="end_time" id="end_time">
                         <option value="">Any time</option>
                         {% for value, label in half_hour_choices %}
                           <option value="{{ value }}" {% if end_time == value %}selected{% endif %}>{{ label }}</option>
                         {% endfor %}
                       </select>
                     </div>
+                    
                     <input type="hidden" name="filter_type" value="single">
-
                     <input type="hidden" name="parking_spot_size" id="parking_spot_size_hidden" value="">
                     <input type="hidden" name="recurring_pattern" id="recurring_pattern_hidden" value="">
                     <input type="hidden" name="recurring_weeks" id="recurring_weeks_hidden" value="">

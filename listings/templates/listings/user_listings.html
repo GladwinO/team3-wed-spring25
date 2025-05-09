@@ -11,7 +11,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="container mt-5">
+<div class="container mt-5 mb-5 pb-4">
   <!-- Combined title and back button row -->
   <div class="row mb-4">
     <div class="col-12">
@@ -33,16 +33,19 @@
     </div>
   </div>
 
+  {% csrf_token %}
+
   {% if listings %}
     <div id="listingsContainer" class="listings-container" data-username="{{ host.username }}">
-      {% include 'listings/partials/listing_cards.html' with listings=listings|slice:":10" is_public_view=True %}
+      {% include 'listings/partials/listing_cards.html' with listings=listings is_public_view=True %}
     </div>
     
-    <!-- Load More Button -->
-    {% if listings.count > 10 %}
-    <div class="load-more-container">
-      <button id="loadMoreBtn" class="btn btn-primary" data-page="2">
-        <i class="fas fa-spinner me-2"></i>Load More
+    <!-- Add this load more button after your listings container -->
+    {% if listings.has_next %}
+    <div class="text-center my-4">
+      <button id="loadMoreBtn" class="btn btn-outline-primary" 
+              data-next-page="{{ listings.next_page_number }}">
+        <i class="fas fa-plus-circle me-1"></i>Load More Listings
       </button>
     </div>
     {% endif %}
@@ -62,6 +65,10 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- Add this first -->
+<script src="{% static 'listings/js/prevent_dups.js' %}"></script>
+<!-- Then your existing scripts -->
 <script src="{% static 'listings/js/view_listings.js' %}"></script>
 <script src="{% static 'listings/js/user_listings.js' %}"></script>
+<script src="{% static 'listings/js/bookmarks.js' %}"></script>
 {% endblock %}

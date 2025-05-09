@@ -20,6 +20,8 @@ from django.urls import path, include
 from accounts.views import home
 from django.views.static import serve
 from django.conf import settings
+from django.views.generic import TemplateView
+from .views import custom_404_handler
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -35,4 +37,7 @@ urlpatterns = [
         {"document_root": settings.MEDIA_ROOT},
     ),
     path("reports/", include("reports.urls")),
+    path("404/", TemplateView.as_view(template_name="404.html")),
 ]
+
+handler404 = custom_404_handler

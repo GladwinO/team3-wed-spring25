@@ -1,4 +1,4 @@
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -8,11 +8,21 @@ from django.core.paginator import Paginator
 from django.db import models
 from django.forms import inlineformset_factory
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.db.models import Sum
+
+# Add this new function for API support
+from django.http import JsonResponse
+from django.template.loader import render_to_string
+
+# Add this import at the top of your file, with your other imports
+from django.urls import reverse
 
 from .forms import (
     ListingForm,
     ListingSlotForm,
     ListingSlotFormSet,
+    RecurringListingForm,
     validate_non_overlapping_slots,
 )
 from .models import (
@@ -21,62 +31,13 @@ from .models import (
     PARKING_SPOT_SIZES,
     Listing,
     ListingSlot,
+    BookmarkedListing,
 )
 from .utils import (
     filter_listings,
     has_active_filters,
+    generate_recurring_listing_slots,
 )
-
-# Add this new function for API support
-from django.http import JsonResponse
-from django.template.loader import render_to_string
-
-
-def user_listings_api(request, username):
-    """API endpoint for paginated user listings"""
-    page = int(request.GET.get("page", 1))
-    listings_per_page = 10
-    start = (page - 1) * listings_per_page
-    end = start + listings_per_page
-
-    # Get the host user
-    host = get_object_or_404(User, username=username)
-
-    # Use the same logic as user_listings to get sorted listings
-    current_datetime = datetime.now()
-    listings = Listing.objects.filter(user=host).distinct()
-    available_listings = []
-    unavailable_listings = []
-
-    for listing in listings:
-        is_available = listing.slots.filter(
-            models.Q(end_date__gt=current_datetime.date())
-            | models.Q(
-                end_date=current_datetime.date(), end_time__gt=current_datetime.time()
-            )
-        ).exists()
-        listing.user_profile_available = is_available
-        if is_available:
-            available_listings.append(listing)
-        else:
-            unavailable_listings.append(listing)
-
-    # Sort and combine
-    available_listings.sort(key=lambda x: -x.created_at.timestamp())
-    unavailable_listings.sort(key=lambda x: -x.created_at.timestamp())
-    sorted_listings = available_listings + unavailable_listings
-
-    # Slice for pagination
-    page_listings = sorted_listings[start:end]
-
-    # Render HTML for these listings
-    html = render_to_string(
-        "listings/partials/listing_cards.html",
-        {"listings": page_listings, "is_public_view": True},
-        request=request,
-    )
-
-    return JsonResponse({"html": html, "has_more": len(sorted_listings) > end})
 
 
 # Define an inline formset for editing (extra=0)
@@ -139,44 +100,127 @@ def merge_listing_slots(listing):
 @login_required
 def create_listing(request):
     alert_message = ""
+    is_recurring = False
+
     if request.method == "POST":
+        # Get the form mode
+        is_recurring = request.POST.get("is_recurring") == "true"
         listing_form = ListingForm(request.POST)
-        slot_formset = ListingSlotFormSet(request.POST, prefix="form")
-        if listing_form.is_valid() and slot_formset.is_valid():
-            try:
-                validate_non_overlapping_slots(slot_formset)
-            except Exception:
-                alert_message = "Overlapping slots detected. Please correct."
-                return render(
-                    request,
-                    "listings/create_listing.html",
-                    {
-                        "form": listing_form,
-                        "slot_formset": slot_formset,
-                        "alert_message": alert_message,
-                    },
-                )
+        recurring_form = RecurringListingForm(request.POST)
+
+        # VALIDATE ALL FORMS BEFORE CREATING ANY DATABASE OBJECTS
+        if is_recurring:
+            # Check both forms are valid for recurring mode
+            forms_valid = listing_form.is_valid() and recurring_form.is_valid()
+            slot_formset = ListingSlotFormSet(
+                prefix="form"
+            )  # Empty formset for template
+        else:
+            # Check both forms are valid for single mode
+            slot_formset = ListingSlotFormSet(request.POST, prefix="form")
+            forms_valid = listing_form.is_valid() and slot_formset.is_valid()
+
+            # Additional validation for non-overlapping slots
+            if forms_valid:
+                # Use our modified validation function that adds field errors
+                if not validate_non_overlapping_slots(slot_formset):
+                    forms_valid = False
+                    # No need for alert_message since errors are added to fields
+
+        # ONLY CREATE DATABASE OBJECTS IF ALL VALIDATIONS PASS
+        if forms_valid:
+            # Now we can safely create the listing
             new_listing = listing_form.save(commit=False)
             new_listing.user = request.user
             new_listing.save()
-            slot_formset.instance = new_listing
-            slot_formset.save()
-            # Merge continuous slots if they are present.
-            merge_listing_slots(new_listing)
-            messages.success(request, "Listing created successfully!")
-            return redirect("view_listings")
-        else:
-            alert_message = "Please correct the errors below."
+
+            if is_recurring:
+                try:
+                    # Process recurring pattern
+                    pattern = recurring_form.cleaned_data.get("recurring_pattern")
+                    start_date = recurring_form.cleaned_data.get("recurring_start_date")
+                    start_time = recurring_form.cleaned_data.get("recurring_start_time")
+                    end_time = recurring_form.cleaned_data.get("recurring_end_time")
+                    is_overnight = recurring_form.cleaned_data.get(
+                        "recurring_overnight", False
+                    )
+
+                    # Convert times
+                    start_time_obj = (
+                        datetime.strptime(start_time, "%H:%M").time()
+                        if isinstance(start_time, str)
+                        else start_time
+                    )
+                    end_time_obj = (
+                        datetime.strptime(end_time, "%H:%M").time()
+                        if isinstance(end_time, str)
+                        else end_time
+                    )
+
+                    if pattern == "daily":
+                        end_date = recurring_form.cleaned_data.get("recurring_end_date")
+                        slots = generate_recurring_listing_slots(
+                            start_date,
+                            start_time_obj,
+                            end_time_obj,
+                            "daily",
+                            is_overnight,
+                            end_date=end_date,
+                        )
+                    elif pattern == "weekly":
+                        weeks = recurring_form.cleaned_data.get("recurring_weeks")
+                        slots = generate_recurring_listing_slots(
+                            start_date,
+                            start_time_obj,
+                            end_time_obj,
+                            "weekly",
+                            is_overnight,
+                            weeks=weeks,
+                        )
+
+                    # Create each slot
+                    for slot in slots:
+                        ListingSlot.objects.create(
+                            listing=new_listing,
+                            start_date=slot["start_date"],
+                            start_time=slot["start_time"],
+                            end_date=slot["end_date"],
+                            end_time=slot["end_time"],
+                        )
+
+                    merge_listing_slots(new_listing)
+                    request.session["success_message"] = (
+                        f"Listing created successfully with {len(slots)} availability slots!"
+                    )
+                    return redirect("manage_listings")
+
+                except Exception as e:
+                    # If an error occurs during slot creation, delete the listing
+                    new_listing.delete()
+                    alert_message = f"Error creating recurring listing: {str(e)}"
+            else:
+                # For non-recurring listings
+                slot_formset.instance = new_listing
+                slot_formset.save()
+                merge_listing_slots(new_listing)
+                request.session["success_message"] = "Listing created successfully!"
+                return redirect("manage_listings")
     else:
+        # GET request - initialize forms
         listing_form = ListingForm()
+        recurring_form = RecurringListingForm()
         slot_formset = ListingSlotFormSet(prefix="form")
+
     return render(
         request,
         "listings/create_listing.html",
         {
             "form": listing_form,
+            "recurring_form": recurring_form,
             "slot_formset": slot_formset,
             "alert_message": alert_message,
+            "half_hour_choices": HALF_HOUR_CHOICES,
+            "is_recurring": is_recurring,
         },
     )
 
@@ -201,7 +245,19 @@ def edit_listing(request, listing_id):
         )
         if listing_form.is_valid() and slot_formset.is_valid():
             try:
-                validate_non_overlapping_slots(slot_formset)
+                # Explicitly check for overlapping slots and RETURN without saving if they overlap
+                if not validate_non_overlapping_slots(slot_formset):
+                    alert_message = "Overlapping slots detected. Please correct."
+                    return render(
+                        request,
+                        "listings/edit_listing.html",
+                        {
+                            "form": listing_form,
+                            "slot_formset": slot_formset,
+                            "listing": listing,
+                            "alert_message": alert_message,
+                        },
+                    )
             except Exception:
                 alert_message = "Overlapping slots detected. Please correct."
                 return render(
@@ -308,7 +364,7 @@ def edit_listing(request, listing_id):
             # Merge continuous slots if needed.
             merge_listing_slots(listing)
 
-            messages.success(request, "Listing updated successfully!")
+            request.session["success_message"] = "Listing created successfully!"
             return redirect("manage_listings")
         else:
             alert_message = "Please correct the errors below."
@@ -405,6 +461,16 @@ def view_listings(request):
     page_number = request.GET.get("page", 1)
     page_obj = paginator.get_page(page_number)
 
+    # Add this code to get bookmarked listings
+    bookmarked_listings = []
+    if request.user.is_authenticated:
+        # Get IDs of listings bookmarked by the user
+        bookmarked_listings = list(
+            BookmarkedListing.objects.filter(user=request.user).values_list(
+                "listing__id", flat=True
+            )
+        )
+
     context = {
         "listings": page_obj,
         "half_hour_choices": HALF_HOUR_CHOICES,
@@ -434,6 +500,7 @@ def view_listings(request):
         "parking_spot_sizes": PARKING_SPOT_SIZES,
         "has_active_filters": has_active_filters(request),
         "is_public_view": False,
+        "bookmarked_listings": bookmarked_listings,
     }
 
     if request.GET.get("ajax") == "1":
@@ -480,13 +547,96 @@ def map_view_listings(request):
     return JsonResponse({"markers": markers})
 
 
+@login_required
 def manage_listings(request):
-    owner_listings = Listing.objects.filter(user=request.user)
-    for listing in owner_listings:
+    # Calculate date boundaries
+    today = timezone.now().date()
+    first_day_current_month = today.replace(day=1)
+    last_month = first_day_current_month - timedelta(days=1)
+    first_day_last_month = last_month.replace(day=1)
+
+    # Fetch all listings owned by this user
+    listings = Listing.objects.filter(user=request.user)
+
+    # Initialize earnings totals
+    total_earnings = 0
+    current_month_earnings = 0
+    last_month_earnings = 0
+
+    # Compute per-listing stats and accumulate earnings
+    for listing in listings:
         listing.pending_bookings = listing.booking_set.filter(status="PENDING")
         listing.approved_bookings = listing.booking_set.filter(status="APPROVED")
+
+        # Total earnings to date
+        earned = (
+            listing.approved_bookings.aggregate(Sum("total_price"))["total_price__sum"]
+            or 0
+        )
+        listing.total_earnings = earned
+        total_earnings += earned
+
+        # Earnings this month
+        earned_current = (
+            listing.approved_bookings.filter(
+                created_at__gte=first_day_current_month
+            ).aggregate(Sum("total_price"))["total_price__sum"]
+            or 0
+        )
+        listing.current_month_earnings = earned_current
+        current_month_earnings += earned_current
+
+        # Earnings last month
+        earned_last = (
+            listing.approved_bookings.filter(
+                created_at__gte=first_day_last_month,
+                created_at__lt=first_day_current_month,
+            ).aggregate(Sum("total_price"))["total_price__sum"]
+            or 0
+        )
+        listing.last_month_earnings = earned_last
+        last_month_earnings += earned_last
+
+    earnings_summary = {
+        "total": total_earnings,
+        "current_month": current_month_earnings,
+        "last_month": last_month_earnings,
+        "current_month_name": today.strftime("%B"),
+        "last_month_name": last_month.strftime("%B"),
+    }
+
+    # Priority grouping
+    listings_with_pending = []
+    listings_with_active = []
+    other_listings = []
+
+    for listing in listings:
+        if listing.pending_bookings.exists():
+            listings_with_pending.append(listing)
+        elif listing.approved_bookings.exists():
+            listings_with_active.append(listing)
+        else:
+            other_listings.append(listing)
+
+    # Sort each group by creation date (newest first)
+    listings_with_pending.sort(key=lambda x: x.created_at, reverse=True)
+    listings_with_active.sort(key=lambda x: x.created_at, reverse=True)
+    other_listings.sort(key=lambda x: x.created_at, reverse=True)
+
+    # Combine in priority order
+    prioritized_listings = listings_with_pending + listings_with_active + other_listings
+
+    # Get success message from session and remove it
+    success_message = request.session.pop("success_message", None)
+
     return render(
-        request, "listings/manage_listings.html", {"listings": owner_listings}
+        request,
+        "listings/manage_listings.html",
+        {
+            "listings": prioritized_listings,
+            "earnings_summary": earnings_summary,
+            "success_message": success_message,
+        },
     )
 
 
@@ -572,13 +722,48 @@ def user_listings(request, username):
     # Combine the lists - available first, then unavailable
     sorted_listings = available_listings + unavailable_listings
 
+    # Add pagination
+    paginator = Paginator(sorted_listings, 10)  # 10 per page
+    page = request.GET.get("page", 1)
+    listings_page = paginator.get_page(page)
+
+    # Handle AJAX requests
+    if request.GET.get("ajax") == "1":
+        html = render_to_string(
+            "listings/partials/listing_cards.html",
+            {"listings": listings_page, "is_public_view": True},
+            request=request,
+        )
+        return JsonResponse(
+            {
+                "html": html,
+                "has_next": listings_page.has_next(),
+                "next_page": (
+                    listings_page.next_page_number()
+                    if listings_page.has_next()
+                    else None
+                ),
+            }
+        )
+
+    # Add this code to get bookmarked listings
+    bookmarked_listings = []
+    if request.user.is_authenticated:
+        # Get IDs of listings bookmarked by the user
+        bookmarked_listings = list(
+            BookmarkedListing.objects.filter(user=request.user).values_list(
+                "listing__id", flat=True
+            )
+        )
+
     context = {
-        "listings": sorted_listings,
+        "listings": listings_page,  # Change from sorted_listings to listings_page
         "host": host,
         "is_public_view": True,
         "source": "user_listings",
         "username": username,
-        "total_count": len(sorted_listings),  # Add this line
+        "total_count": len(sorted_listings),
+        "bookmarked_listings": bookmarked_listings,
     }
     return render(request, "listings/user_listings.html", context)
 
@@ -591,3 +776,117 @@ def my_listings(request):
 
 def map_legend(request):
     return render(request, "listings/map_legend.html")
+
+
+@login_required
+def toggle_bookmark(request, listing_id):
+    listing = get_object_or_404(Listing, id=listing_id)
+
+    # Don't allow users to bookmark their own listings
+    if listing.user == request.user:
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return JsonResponse(
+                {"error": "Cannot bookmark your own listing"}, status=400
+            )
+        messages.error(request, "You cannot bookmark your own listing.")
+        return redirect("view_listings")
+
+    # Check if already bookmarked
+    try:
+        bookmark = BookmarkedListing.objects.get(user=request.user, listing=listing)
+        # If found, remove the bookmark
+        bookmark.delete()
+        is_bookmarked = False
+        message = "Listing removed from bookmarks."
+    except BookmarkedListing.DoesNotExist:
+        # If not found, create a new bookmark - even if unavailable
+        BookmarkedListing.objects.create(user=request.user, listing=listing)
+        is_bookmarked = True
+        message = "Listing added to bookmarks."
+
+    # Return JSON for AJAX requests
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse({"is_bookmarked": is_bookmarked, "message": message})
+
+    # For non-AJAX requests, redirect back
+    messages.success(request, message)
+    next_url = request.META.get("HTTP_REFERER", reverse("view_listings"))
+    return redirect(next_url)
+
+
+@login_required
+def bookmarked_listings(request):
+    """Show all bookmarked listings for the current user"""
+    # Get current datetime for availability check
+    current_datetime = datetime.now()
+
+    # Get all bookmarked listings
+    bookmarks = BookmarkedListing.objects.filter(user=request.user)
+    all_listings = [bookmark.listing for bookmark in bookmarks]
+
+    # Create two separate lists - available and unavailable
+    available_listings = []
+    unavailable_listings = []
+
+    for listing in all_listings:
+        # Check if listing has any future availability slots
+        is_available = listing.slots.filter(
+            models.Q(end_date__gt=current_datetime.date())
+            | models.Q(
+                end_date=current_datetime.date(), end_time__gt=current_datetime.time()
+            )
+        ).exists()
+
+        # Set property that template checks for availability
+        listing.user_profile_available = is_available
+
+        # Sort listings into appropriate lists
+        if is_available:
+            available_listings.append(listing)
+        else:
+            unavailable_listings.append(listing)
+
+    # Sort each list by creation date (newest first)
+    available_listings.sort(key=lambda x: -x.created_at.timestamp())
+    unavailable_listings.sort(key=lambda x: -x.created_at.timestamp())
+
+    # Combine the lists - available first, then unavailable
+    sorted_listings = available_listings + unavailable_listings
+
+    # Add pagination
+    paginator = Paginator(sorted_listings, 10)  # 10 per page
+    page = request.GET.get("page", 1)
+    listings_page = paginator.get_page(page)
+
+    # Handle AJAX requests for load more functionality
+    if request.GET.get("ajax") == "1":
+        html = render_to_string(
+            "listings/partials/listing_cards.html",
+            {
+                "listings": listings_page,
+                "is_bookmarks_page": True,
+                "bookmarked_listings": [listing.id for listing in all_listings],
+            },
+            request=request,
+        )
+        return JsonResponse(
+            {
+                "html": html,
+                "has_next": listings_page.has_next(),
+                "next_page": (
+                    listings_page.next_page_number()
+                    if listings_page.has_next()
+                    else None
+                ),
+            }
+        )
+
+    # Standard page load context
+    context = {
+        "listings": listings_page,
+        "bookmarked_listings": [listing.id for listing in all_listings],
+        "is_bookmarks_page": True,
+        "title": "My Bookmarked Listings",
+        "total_count": len(sorted_listings),
+    }
+    return render(request, "listings/bookmarked_listings.html", context)

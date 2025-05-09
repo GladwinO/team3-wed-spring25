@@ -13,30 +13,30 @@ let meterLayerGroup;
 
 // Map-related functions (outside DOMContentLoaded)
 function initializeMap() {
-    if (!mapInitialized) {
-        console.log("Initializing search map...");
+  if (!mapInitialized) {
+    console.log("Initializing search map...");
 
-        // Ensure map container is visible
-        const mapContainer = document.getElementById("map-view");
-        if (mapContainer) {
-            mapContainer.style.display = "block";
-            mapContainer.style.height = "100%";
-            mapContainer.style.width = "100%";
-        }
+    // Ensure map container is visible
+    const mapContainer = document.getElementById("map-view");
+    if (mapContainer) {
+      mapContainer.style.display = "block";
+      mapContainer.style.height = "100%";
+      mapContainer.style.width = "100%";
+    }
 
-        // Use our NYC-bounded map initialization instead of the original code
-        searchMap = initializeNYCMap("map-view", {
-            center: NYC_CENTER,
-            zoom: 12,
-            minZoom: 10
-        });
+    // Use our NYC-bounded map initialization instead of the original code
+    searchMap = initializeNYCMap("map-view", {
+      center: NYC_CENTER,
+      zoom: 12,
+      minZoom: 10,
+    });
 
-        currentMapView = searchMap; // Store map reference
+    currentMapView = searchMap; // Store map reference
 
-        // Initialize layer groups
-        listingLayerGroup = L.layerGroup().addTo(searchMap);
-        garageLayerGroup = L.layerGroup();
-        meterLayerGroup = L.layerGroup();
+    // Initialize layer groups
+    listingLayerGroup = L.layerGroup().addTo(searchMap);
+    garageLayerGroup = L.layerGroup();
+    meterLayerGroup = L.layerGroup();
 
     // Add click event to map
     searchMap.on("click", onMapClick);
@@ -44,15 +44,15 @@ function initializeMap() {
     // Add the legend to the search map
     searchMap.addControl(createMapLegend());
 
-        // Add garages and meters to the map
-        addGaragesDirectly(searchMap);
-        addParkingMeters(searchMap);
+    // Add garages and meters to the map
+    addGaragesDirectly(searchMap);
+    addParkingMeters(searchMap);
 
-        // Force map resize
-        setTimeout(() => {
-            searchMap.invalidateSize(true);
-            console.log("Map size invalidated");
-        }, 100);
+    // Force map resize
+    setTimeout(() => {
+      searchMap.invalidateSize(true);
+      console.log("Map size invalidated");
+    }, 100);
 
     mapInitialized = true;
     console.log("Map initialized successfully");
@@ -221,11 +221,13 @@ function addListingMarker(listing) {
 
 function onMapClick(e) {
   // Only update if the location picker is enabled
-  const locationPickerToggle = document.getElementById('location-picker-toggle');
+  const locationPickerToggle = document.getElementById(
+    "location-picker-toggle"
+  );
   if (!locationPickerToggle || !locationPickerToggle.checked) {
     return; // Exit if toggle doesn't exist or isn't checked
   }
-  
+
   placeMarker(e.latlng);
   updateCoordinates(e.latlng.lat, e.latlng.lng);
 
@@ -233,6 +235,12 @@ function onMapClick(e) {
   reverseGeocode(e.latlng.lat, e.latlng.lng, {
     onSuccess: (result) => {
       document.getElementById("location-search").value = result.displayName;
+      clearFilterLocationError();
+    },
+    onError: () => {
+      showFilterLocationError(
+        "Could not retrieve address. Try searching by name instead."
+      );
     },
   });
 }
@@ -340,22 +348,22 @@ document.addEventListener("DOMContentLoaded", function () {
   if (listView) listView.classList.add("active-view");
   if (mapView) mapView.classList.add("active-view");
 
-    if (listView) listView.classList.add("active-view");
-    if (mapView) {
-        mapView.classList.add("active-view");
-        // Ensure map container is visible and properly sized
-        mapView.style.display = "block";
-        mapView.style.height = "100%";
-        mapView.style.width = "100%";
-        mapView.style.position = "absolute";
-        mapView.style.top = "0";
-        mapView.style.left = "0";
-        mapView.style.right = "0";
-        mapView.style.bottom = "0";
-    }
+  if (listView) listView.classList.add("active-view");
+  if (mapView) {
+    mapView.classList.add("active-view");
+    // Ensure map container is visible and properly sized
+    mapView.style.display = "block";
+    mapView.style.height = "100%";
+    mapView.style.width = "100%";
+    mapView.style.position = "absolute";
+    mapView.style.top = "0";
+    mapView.style.left = "0";
+    mapView.style.right = "0";
+    mapView.style.bottom = "0";
+  }
 
-    const filterHeader = document.querySelector(".filter-header");
-    const toggleFiltersBtn = document.getElementById("toggle-filters");
+  const filterHeader = document.querySelector(".filter-header");
+  const toggleFiltersBtn = document.getElementById("toggle-filters");
 
   // Add click event to both header and toggle button
   if (filterHeader) {
@@ -379,7 +387,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
   setupAdvancedFilters();
   setupRadiusToggle();
-  setupDateSyncForSingleBooking();
   initializeDateRangeToggle();
   initializeEvChargerToggle();
   initializeRecurringPatternToggle();
@@ -459,6 +466,16 @@ function performSearch() {
 
   if (!query) return;
 
+  // Clear any existing error messages before search
+  clearFilterLocationError();
+
+  // Show loading indicator on search button
+  const searchButton = document.getElementById("search-location");
+  if (searchButton) {
+    searchButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    searchButton.disabled = true;
+  }
+
   // Use the utility function
   searchLocation(query, {
     restrictToNYC: true,
@@ -497,6 +514,46 @@ function performSearch() {
       setTimeout(() => {
         searchMap.invalidateSize();
       }, 100);
+
+      // Reset search button
+      if (searchButton) {
+        searchButton.innerHTML = '<i class="fas fa-map-pin"></i>';
+        searchButton.disabled = false;
+      }
+    },
+    onOutOfBounds: () => {
+      showFilterLocationError(
+        "Location is outside of New York City. Please search for a location within NYC."
+      );
+
+      // Reset search button
+      if (searchButton) {
+        searchButton.innerHTML = '<i class="fas fa-map-pin"></i>';
+        searchButton.disabled = false;
+      }
+    },
+    onNotFound: () => {
+      showFilterLocationError(
+        "Location not found. Please try a different search term."
+      );
+
+      // Reset search button
+      if (searchButton) {
+        searchButton.innerHTML = '<i class="fas fa-map-pin"></i>';
+        searchButton.disabled = false;
+      }
+    },
+    onError: (error) => {
+      showFilterLocationError(
+        "Error searching for location. Please try again."
+      );
+      console.error("Search error:", error);
+
+      // Reset search button
+      if (searchButton) {
+        searchButton.innerHTML = '<i class="fas fa-map-pin"></i>';
+        searchButton.disabled = false;
+      }
     },
   });
 }
@@ -518,14 +575,14 @@ function fetchAllListingMarkers() {
     : "";
   console.log("queryString", queryString, "lol");
 
-  fetch(`/listings/map-view-listings/${queryString}`,{
-    method: 'GET', // or your actual method, e.g., POST
-    mode: 'cors', // explicitly allow CORS
+  fetch(`/listings/map-view-listings/${queryString}`, {
+    method: "GET", // or your actual method, e.g., POST
+    mode: "cors", // explicitly allow CORS
     headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-      'User-Agent': 'ParkEasy NYC Application (https://parkeasy.example.com)'
-    }
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "ParkEasy NYC Application (https://parkeasy.example.com)",
+    },
   })
     .then((response) => response.json())
     .then((data) => {
@@ -612,4 +669,44 @@ function setupListingHighlighting() {
     card.addEventListener("mouseenter", card._mouseenterHandler);
     card.addEventListener("mouseleave", card._mouseleaveHandler);
   });
+}
+
+// Helper function to show location error in the filter form
+function showFilterLocationError(message) {
+  const locationField = document.getElementById("location-search");
+  if (!locationField) return;
+
+  // Find or create error element
+  let errorElement = document.getElementById("filter-location-error");
+  if (!errorElement) {
+    errorElement = document.createElement("div");
+    errorElement.id = "filter-location-error";
+    errorElement.className = "invalid-feedback d-block";
+    errorElement.innerHTML = `<i class="fas fa-exclamation-circle me-1"></i> ${message}`;
+
+    // Insert after the input group
+    const inputGroup = locationField.closest(".input-group");
+    if (inputGroup && inputGroup.parentNode) {
+      inputGroup.parentNode.insertBefore(errorElement, inputGroup.nextSibling);
+    }
+  } else {
+    errorElement.innerHTML = `<i class="fas fa-exclamation-circle me-1"></i> ${message}`;
+    errorElement.style.display = "block";
+  }
+
+  // Add error styling to input
+  locationField.classList.add("is-invalid");
+}
+
+// Helper function to clear location error
+function clearFilterLocationError() {
+  const errorElement = document.getElementById("filter-location-error");
+  if (errorElement) {
+    errorElement.style.display = "none";
+  }
+
+  const locationField = document.getElementById("location-search");
+  if (locationField) {
+    locationField.classList.remove("is-invalid");
+  }
 }

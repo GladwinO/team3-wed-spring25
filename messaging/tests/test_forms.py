@@ -30,7 +30,7 @@ class MessageFormTest(TestCase):
         form = MessageForm(data=form_data)
         self.assertTrue(form.is_valid())
 
-    def test_form_valid_without_subject(self):
+    def test_form_invalid_without_subject(self):
         """Test that the form is valid when subject is not provided"""
         form_data = {
             "recipient": self.user2.id,
@@ -38,7 +38,7 @@ class MessageFormTest(TestCase):
             "body": "Test message body content",
         }
         form = MessageForm(data=form_data)
-        self.assertTrue(form.is_valid())
+        self.assertFalse(form.is_valid())
 
     def test_form_invalid_without_recipient(self):
         """Test that the form is invalid when recipient is not provided"""

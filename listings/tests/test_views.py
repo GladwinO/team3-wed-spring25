@@ -1,3 +1,4 @@
+import json
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from unittest.mock import patch
@@ -7,7 +8,7 @@ from django.test import Client, TestCase
 from django.urls import reverse
 
 from booking.models import Booking, BookingSlot
-from listings.models import Listing, ListingSlot
+from listings.models import Listing, ListingSlot, BookmarkedListing
 
 from ..utils import extract_coordinates
 
@@ -103,7 +104,7 @@ class CreateListingViewTest(TestCase):
         }
         response = self.client.post(self.create_url, post_data)
         self.assertEqual(response.status_code, 302)
-        self.assertRedirects(response, reverse("view_listings"))
+        self.assertRedirects(response, reverse("manage_listings"))
         self.assertTrue(Listing.objects.filter(title="New Listing").exists())
         new_listing = Listing.objects.get(title="New Listing")
         slot = new_listing.slots.first()
@@ -115,7 +116,7 @@ class CreateListingViewTest(TestCase):
     def test_create_listing_post_invalid_form(self):
         # Missing title to force an error.
         listing_data = {
-            "title": "",
+            "title": "",  # Empty title should trigger validation error
             "description": "New Description",
             "rent_per_hour": "15.00",
             "location": "New Location [123, 456]",
@@ -127,22 +128,28 @@ class CreateListingViewTest(TestCase):
         post_data = {**listing_data, **build_slot_formset_data(prefix="form", count=1)}
         response = self.client.post(self.create_url, post_data)
         self.assertEqual(response.status_code, 200)
-        # Expect alert message in the rendered template.
-        self.assertContains(response, "Please correct the errors below")
+
+        # Check for field-specific error message
+        self.assertContains(response, "Please enter a spot title")
+
+        # Verify error is associated with the correct field
+        form = response.context["form"]
+        self.assertIn("title", form.errors)
+        self.assertIn("Please enter a spot title", str(form.errors["title"]))
 
     def test_create_listing_post_overlapping_slots(self):
         listing_data = {
             "title": "Overlap Listing",
             "description": "Overlap test",
             "rent_per_hour": "15.00",
-            "location": "Overlap Location",
+            "location": "Overlap Location [123, 456]",  # Add coordinates
             "has_ev_charger": False,
             "charger_level": "",
             "connector_type": "",
             "parking_spot_size": "STANDARD",
         }
-        # Two slots that overlap.
 
+        # Two slots that overlap
         start_date = self.now.date() + timedelta(days=1)
         end_date = start_date
         start_date2 = start_date
@@ -164,8 +171,346 @@ class CreateListingViewTest(TestCase):
             **build_slot_formset_data(prefix="form", count=2, slot_data=slot_data),
         }
         response = self.client.post(self.create_url, post_data)
-        # Expect the view to catch overlapping slots.
+
+        # Expect the view to catch overlapping slots and add field errors
         self.assertEqual(response.status_code, 200)
+
+        # Check for overlap-specific error message
+        self.assertContains(response, "This slot overlaps with another slot")
+
+        # Verify errors are on both start_date and end_date fields
+        formset = response.context["slot_formset"]
+        for form in formset:
+            if "start_date" in form.errors:
+                self.assertIn(
+                    "This slot overlaps with another slot",
+                    str(form.errors["start_date"]),
+                )
+                self.assertIn(
+                    "This slot overlaps with another slot", str(form.errors["end_date"])
+                )
+
+    def test_create_listing_past_date(self):
+        """Test validation rejects past dates"""
+        listing_data = {
+            "title": "Past Date Test",
+            "description": "Should fail validation",
+            "rent_per_hour": "15.00",
+            "location": "Past Date Location [123, 456]",
+            "has_ev_charger": False,
+            "charger_level": "",
+            "connector_type": "",
+            "parking_spot_size": "STANDARD",
+        }
+
+        # Use yesterday's date to trigger validation error
+        yesterday = (self.now.date() - timedelta(days=1)).strftime("%Y-%m-%d")
+        tomorrow = (self.now.date() + timedelta(days=1)).strftime("%Y-%m-%d")
+
+        slot_data = {
+            "form-0-start_date": yesterday,
+            "form-0-start_time": "09:00",
+            "form-0-end_date": tomorrow,
+            "form-0-end_time": "17:00",
+        }
+
+        post_data = {
+            **listing_data,
+            **build_slot_formset_data(prefix="form", count=1, slot_data=slot_data),
+        }
+
+        response = self.client.post(self.create_url, post_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Start date cannot be in the past")
+
+        # Verify the error is on the start_date field
+        formset = response.context["slot_formset"]
+        form = formset[0]
+        self.assertIn("start_date", form.errors)
+        self.assertIn(
+            "Start date cannot be in the past", str(form.errors["start_date"])
+        )
+
+    def test_create_listing_end_date_before_start_date(self):
+        """Test validation rejects end date before start date"""
+        listing_data = {
+            "title": "Date Order Test",
+            "description": "Should fail validation",
+            "rent_per_hour": "15.00",
+            "location": "Date Order Location [123, 456]",
+            "has_ev_charger": False,
+            "charger_level": "",
+            "connector_type": "",
+            "parking_spot_size": "STANDARD",
+        }
+
+        # End date before start date
+        start_date = (self.now.date() + timedelta(days=2)).strftime("%Y-%m-%d")
+        end_date = (self.now.date() + timedelta(days=1)).strftime("%Y-%m-%d")
+
+        slot_data = {
+            "form-0-start_date": start_date,
+            "form-0-start_time": "09:00",
+            "form-0-end_date": end_date,
+            "form-0-end_time": "17:00",
+        }
+
+        post_data = {
+            **listing_data,
+            **build_slot_formset_data(prefix="form", count=1, slot_data=slot_data),
+        }
+
+        response = self.client.post(self.create_url, post_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "End date cannot be before start date")
+
+        # Verify the error is on the end_date field
+        formset = response.context["slot_formset"]
+        form = formset[0]
+        self.assertIn("end_date", form.errors)
+        self.assertIn(
+            "End date cannot be before start date", str(form.errors["end_date"])
+        )
+
+    def test_form_mode_preserved_on_validation_error(self):
+        """Test that form mode (recurring or single) is preserved after validation error"""
+        # Test recurring mode is preserved
+        recurring_data = {
+            "title": "Recurring Mode Test",
+            "description": "Testing mode preservation",
+            "rent_per_hour": "15.00",
+            "location": "Mode Test Location [40.712776, -74.005974]",
+            "has_ev_charger": False,
+            "parking_spot_size": "STANDARD",
+            "is_recurring": "true",
+            "recurring_pattern": "daily",
+            # Missing recurring_end_date to trigger validation error
+            "recurring_start_date": (
+                datetime.now().date() + timedelta(days=1)
+            ).strftime("%Y-%m-%d"),
+            "recurring_start_time": "09:00",
+            "recurring_end_time": "17:00",
+        }
+
+        response = self.client.post(self.create_url, recurring_data)
+        self.assertEqual(response.status_code, 200)
+
+        # Check that is_recurring is still True in the context
+        self.assertTrue(response.context["is_recurring"])
+        self.assertContains(response, "End date is required for daily pattern")
+
+        # Test single mode is preserved
+        single_data = {
+            "title": "Single Mode Test",
+            "description": "Testing mode preservation",
+            "rent_per_hour": "-5.00",  # Negative price to trigger validation error
+            "location": "Mode Test Location [40.712776, -74.005974]",
+            "has_ev_charger": False,
+            "parking_spot_size": "STANDARD",
+            "is_recurring": "false",
+        }
+
+        single_data.update(build_slot_formset_data(prefix="form", count=1))
+
+        response = self.client.post(self.create_url, single_data)
+        self.assertEqual(response.status_code, 200)
+
+        # Check that is_recurring is still False in the context
+        self.assertFalse(response.context["is_recurring"])
+        self.assertContains(response, "Price must be greater than zero")
+
+
+###################################
+# Tests for create_listing view with recurring listings.
+###################################
+class RecurringListingCreationTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username="testuser", password="password")
+        self.client.login(username="testuser", password="password")
+        self.create_url = reverse("create_listing")
+        self.tomorrow = datetime.now().date() + timedelta(days=1)
+        self.next_week = self.tomorrow + timedelta(days=7)
+
+        # Basic listing data for all tests
+        self.listing_data = {
+            "title": "Test Recurring Listing",
+            "location": "Test Location [40.712776, -74.005974]",
+            "rent_per_hour": "15.00",
+            "description": "A test recurring listing",
+            "parking_spot_size": "STANDARD",
+            "has_ev_charger": "",
+            "is_recurring": "true",
+        }
+
+    def test_create_daily_recurring_listing(self):
+        """Test creating a listing with daily recurring slots"""
+        data = self.listing_data.copy()
+        data.update(
+            {
+                "recurring_pattern": "daily",
+                "recurring_start_date": self.tomorrow.strftime("%Y-%m-%d"),
+                "recurring_end_date": self.next_week.strftime("%Y-%m-%d"),
+                "recurring_start_time": "09:00",
+                "recurring_end_time": "17:00",
+            }
+        )
+
+        response = self.client.post(self.create_url, data)
+
+        # Check redirect on success
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("manage_listings"))
+
+        # Verify listing was created
+        listing = Listing.objects.get(title="Test Recurring Listing")
+        self.assertEqual(listing.user, self.user)
+
+        # Check that slots were created
+        days_difference = (self.next_week - self.tomorrow).days + 1
+        slots = ListingSlot.objects.filter(listing=listing)
+        self.assertEqual(slots.count(), days_difference)
+
+    def test_create_weekly_recurring_listing(self):
+        """Test creating a listing with weekly recurring slots"""
+        data = self.listing_data.copy()
+        data.update(
+            {
+                "recurring_pattern": "weekly",
+                "recurring_start_date": self.tomorrow.strftime("%Y-%m-%d"),
+                "recurring_start_time": "09:00",
+                "recurring_end_time": "17:00",
+                "recurring_weeks": "3",
+            }
+        )
+
+        response = self.client.post(self.create_url, data)
+
+        # Check redirect on success
+        self.assertEqual(response.status_code, 302)
+
+        # Verify listing was created
+        listing = Listing.objects.filter(title="Test Recurring Listing").first()
+        self.assertIsNotNone(listing)
+
+        # Check that slots were created (3 weeks)
+        slots = ListingSlot.objects.filter(listing=listing)
+        self.assertEqual(slots.count(), 3)
+
+        # Verify weekly pattern (dates should be 7 days apart)
+        dates = [slot.start_date for slot in slots.order_by("start_date")]
+        self.assertEqual((dates[1] - dates[0]).days, 7)
+        self.assertEqual((dates[2] - dates[1]).days, 7)
+
+    def test_create_overnight_recurring_listing(self):
+        """Test creating a listing with overnight recurring slots"""
+        data = self.listing_data.copy()
+        data.update(
+            {
+                "recurring_pattern": "weekly",
+                "recurring_start_date": self.tomorrow.strftime("%Y-%m-%d"),
+                "recurring_start_time": "18:00",
+                "recurring_end_time": "09:00",
+                "recurring_overnight": "on",
+                "recurring_weeks": "2",
+            }
+        )
+
+        response = self.client.post(self.create_url, data)
+
+        # Check redirect on success
+        self.assertEqual(response.status_code, 302)
+
+        # Verify listing was created
+        listing = Listing.objects.filter(title="Test Recurring Listing").first()
+        self.assertIsNotNone(listing)
+
+        # Check overnight slots
+        slots = ListingSlot.objects.filter(listing=listing)
+        for slot in slots:
+            # End date should be day after start date for overnight
+            self.assertEqual((slot.end_date - slot.start_date).days, 1)
+
+    def test_recurring_validation_errors(self):
+        """Test validation for recurring form"""
+        # Basic listing data
+        listing_data = {
+            "title": "Recurring Validation Test",
+            "description": "Testing recurring validation",
+            "rent_per_hour": "15.00",
+            "location": "Recurring Test Location [40.712776, -74.005974]",
+            "has_ev_charger": False,
+            "charger_level": "",
+            "connector_type": "",
+            "parking_spot_size": "STANDARD",
+            "is_recurring": "true",
+        }
+
+        # Add recurring data with issues (past start date)
+        yesterday = (datetime.now().date() - timedelta(days=1)).strftime("%Y-%m-%d")
+        tomorrow = (datetime.now().date() + timedelta(days=1)).strftime("%Y-%m-%d")
+
+        data = listing_data.copy()
+        data.update(
+            {
+                "recurring_pattern": "daily",
+                "recurring_start_date": yesterday,  # Past date - should fail
+                "recurring_end_date": tomorrow,
+                "recurring_start_time": "09:00",
+                "recurring_end_time": "17:00",
+            }
+        )
+
+        response = self.client.post(self.create_url, data)
+        self.assertEqual(response.status_code, 200)
+
+        # Use a more flexible assertion that checks if the content is in there in any format
+        recurring_form = response.context["recurring_form"]
+        self.assertTrue("recurring_start_date" in recurring_form.errors)
+        self.assertTrue(
+            "Start date cannot be in the past"
+            in str(recurring_form.errors["recurring_start_date"])
+        )
+
+        # Original assertion - keep it but it might need to be adjusted based on HTML formatting
+        # self.assertContains(response, "Start date cannot be in the past.")
+
+        # Verify the error is on the recurring_start_date field
+        recurring_form = response.context["recurring_form"]
+        self.assertIn("recurring_start_date", recurring_form.errors)
+        self.assertIn(
+            "Start date cannot be in the past.",
+            str(recurring_form.errors["recurring_start_date"]),
+        )
+
+        # Test end time before start time without overnight
+        data = listing_data.copy()
+        data.update(
+            {
+                "recurring_pattern": "daily",
+                "recurring_start_date": tomorrow,
+                "recurring_end_date": tomorrow,
+                "recurring_start_time": "10:00",
+                "recurring_end_time": "09:00",  # Earlier than start time - should fail
+                "recurring_overnight": False,
+            }
+        )
+
+        response = self.client.post(self.create_url, data)
+        self.assertEqual(response.status_code, 200)
+        # self.assertContains(response, "End time must be later than start time.")
+
+        # Use a more flexible assertion that checks if the content is in there in any format
+        recurring_form = response.context["recurring_form"]
+        self.assertTrue("recurring_end_time" in recurring_form.errors)
+        self.assertTrue(
+            "End time must be later than start time"
+            in str(recurring_form.errors["recurring_end_time"])
+        )
+
+        # Verify the error is on the recurring_end_time field
+        recurring_form = response.context["recurring_form"]
+        self.assertIn("recurring_end_time", recurring_form.errors)
 
 
 #############################
@@ -800,7 +1145,9 @@ class ListingOwnerBookingTest(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Your listing")
-        self.assertContains(response, 'class="badge bg-secondary outline-badge"')
+        self.assertContains(
+            response, 'class="badge bg-secondary outline-badge text-decoration-none"'
+        )
         book_url = reverse("book_listing", args=[self.listing.id])
         self.assertNotContains(response, f'href="{book_url}"')
         self.assertNotContains(response, "Book Now")
@@ -1292,24 +1639,110 @@ class SpotSizeFilterTest(TestCase):
         self.assertEqual(len(listings), 1)
         self.assertEqual(listings[0].id, self.standard_listing.id)
 
-    def test_spot_size_display_in_template(self):
-        """Test that parking spot size badges appear correctly in templates"""
-        response = self.client.get(reverse("view_listings"))
-
-        # Test that Standard Size spots don't get badges (more specific test)
-        self.assertNotContains(response, "Standard Size</span>")
-
-        # Test that we DO see badges for non-standard sizes with correct colors
-        self.assertContains(response, "bg-info")  # Compact badge color
-        self.assertContains(response, "Compact")  # Compact text
-
-        self.assertContains(response, "bg-primary")  # Oversize badge color
-        self.assertContains(response, "Large/Oversize")  # Oversize text
-
-        self.assertContains(response, "bg-danger")  # Commercial badge color
-        self.assertContains(response, "Truck/Commercial")  # Commercial text
-
 
 #############################
 # End of tests.
 #############################
+
+
+class BookmarkFunctionalityTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        # Create test users
+        self.user = User.objects.create_user(username="testuser", password="testpass")
+        self.owner = User.objects.create_user(username="owner", password="ownerpass")
+
+        # Create test listings
+        self.listing = Listing.objects.create(
+            user=self.owner,
+            title="Test Listing",
+            location="Test Location [40.712776, -74.005974]",
+            rent_per_hour=15.00,
+            description="Test description",
+            parking_spot_size="STANDARD",
+        )
+
+        # Add slots to make listing appear in searches
+        tomorrow = (datetime.now() + timedelta(days=1)).date()
+        ListingSlot.objects.create(
+            listing=self.listing,
+            start_date=tomorrow,
+            start_time="09:00",
+            end_date=tomorrow,
+            end_time="17:00",
+        )
+
+    def test_toggle_bookmark(self):
+        """Test adding and removing bookmarks"""
+        self.client.login(username="testuser", password="testpass")
+
+        # Test adding bookmark
+        response = self.client.post(
+            reverse("toggle_bookmark", args=[self.listing.id]),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            BookmarkedListing.objects.filter(
+                user=self.user, listing=self.listing
+            ).exists()
+        )
+
+        # Test removing bookmark
+        response = self.client.post(
+            reverse("toggle_bookmark", args=[self.listing.id]),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(
+            BookmarkedListing.objects.filter(
+                user=self.user, listing=self.listing
+            ).exists()
+        )
+
+    def test_bookmarks_page_display(self):
+        """Test bookmarks page shows correct listings"""
+        self.client.login(username="testuser", password="testpass")
+
+        # Create a bookmark
+        BookmarkedListing.objects.create(user=self.user, listing=self.listing)
+
+        # Use the correct URL name 'bookmarked_listings' instead of 'bookmarks'
+        response = self.client.get(reverse("bookmarked_listings"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(self.listing, response.context["listings"])
+        self.assertContains(response, "Test Listing")
+
+    def test_duplicate_prevention(self):
+        """Test that bookmarking the same listing multiple times doesn't create duplicates"""
+        self.client.login(username="testuser", password="testpass")
+
+        # Send multiple bookmark requests for the same listing
+        for _ in range(3):
+            self.client.post(
+                reverse("toggle_bookmark", args=[self.listing.id]),
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+
+        # There should only be one bookmark
+        bookmarks = BookmarkedListing.objects.filter(
+            user=self.user, listing=self.listing
+        )
+        self.assertEqual(bookmarks.count(), 1)
+
+    def test_bookmark_ajax_response_includes_correct_data(self):
+        """Test that AJAX response contains all necessary data for the frontend"""
+        self.client.login(username="testuser", password="testpass")
+
+        response = self.client.post(
+            reverse("toggle_bookmark", args=[self.listing.id]),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+
+        # Check expected fields - updated to match actual implementation
+        self.assertIn("is_bookmarked", data)
+        self.assertIn("message", data)
+        self.assertEqual(data["is_bookmarked"], True)

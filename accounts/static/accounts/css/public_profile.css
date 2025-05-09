@@ -81,44 +81,32 @@ body .container .card-body .badge.bg-pastel-info {
   }
 }
 
+/* Badge-style clickable link */
 .host-listings-link {
-  color: var(--bs-primary);
+  color: #d83b01; /* Red-orange color */
   text-decoration: none;
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 16px; /* More rounded for badge look */
+  margin: 2px 0;
+  border: 1px solid rgba(216, 59, 1, 0.3); /* Subtle border in same color */
+  transition: all 0.2s ease;
+  font-weight: 500; /* Slightly bolder */
+  transform: translateX(-8px); /* Shift left by 8px */
 }
 
-.host-listings-link::after {
-  content: '';
-  position: absolute;
-  width: 0;
-  height: 1px;
-  bottom: 0;
-  left: 0;
-  background-color: currentColor;
-  transition: width 0.3s ease;
+/* Enhanced hover effects with matching color - without underline */
+.host-listings-link:hover {
+  background-color: rgba(216, 59, 1, 0.08); /* Matches text color */
+  box-shadow: 0 2px 4px rgba(216, 59, 1, 0.15); /* Subtle shadow on hover */
+  transform: translateY(-1px); /* Slight lift effect */
+  border-color: rgba(216, 59, 1, 0.5); /* Darker border on hover */
 }
 
-.host-listings-link:hover::after {
-  width: 100%;
+/* Move car icon to the left */
+.car-icon-shifted {
+  position: relative;
+  left: -6px; /* Adjust this value to move more or less to the left */
 }
-
-.host-listings-link {
-    color: inherit;
-    text-decoration: none;
-    position: relative;
-  }
-  
-  .host-listings-link::after {
-    content: '';
-    position: absolute;
-    width: 0;
-    height: 1px;
-    bottom: 0;
-    left: 0;
-    background-color: currentColor;
-    transition: width 0.3s ease;
-  }
-  
-  .host-listings-link:hover::after {
-    width: 100%;
-  }

@@ -1,46 +1,47 @@
 document.addEventListener('DOMContentLoaded', function() {
   const loadMoreBtn = document.getElementById('loadMoreBtn');
   if (loadMoreBtn) {
-    loadMoreBtn.addEventListener('click', function() {
-      // Show loading indicator
-      const spinner = loadMoreBtn.querySelector('.fa-spinner');
-      spinner.classList.add('spin');
-      loadMoreBtn.disabled = true;
-      
-      const page = parseInt(loadMoreBtn.dataset.page);
-      const username = document.getElementById('listingsContainer').dataset.username;
-      
-      // Make AJAX request to get more listings
-      fetch(`/listings/api/user-listings/${username}/?page=${page}`, {
-        method: 'GET',
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest',
-          'Content-Type': 'application/json'
-        }
-      })
+    loadMoreBtn.addEventListener('click', loadMoreListings);
+  }
+
+  function loadMoreListings() {
+    const btn = this;
+    const nextPage = btn.getAttribute('data-next-page');
+    const username = document.getElementById('listingsContainer').getAttribute('data-username');
+    
+    // Show loading state
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Loading...';
+    btn.disabled = true;
+    
+    // Fetch next page
+    fetch(`/listings/user/${username}/listings/?page=${nextPage}&ajax=1`)
       .then(response => response.json())
       .then(data => {
-        // Insert new listings
-        const listingsContainer = document.getElementById('listingsContainer');
-        listingsContainer.insertAdjacentHTML('beforeend', data.html);
-        
-        // Update page number
-        loadMoreBtn.dataset.page = page + 1;
-        
-        // Hide button if no more listings
-        if (!data.has_more) {
-          loadMoreBtn.style.display = 'none';
+        if (data.html) {
+          // Add new content
+          const container = document.getElementById('listingsContainer');
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = data.html;
+          
+          // Append all cards
+          tempDiv.querySelectorAll('.card').forEach(card => {
+            container.appendChild(card);
+          });
+          
+          // Update button or remove if no more pages
+          if (data.has_next) {
+            btn.innerHTML = '<i class="fas fa-plus-circle me-1"></i>Load More Listings';
+            btn.disabled = false;
+            btn.setAttribute('data-next-page', data.next_page);
+          } else {
+            btn.parentNode.removeChild(btn);
+          }
         }
-        
-        // Reset button state
-        spinner.classList.remove('spin');
-        loadMoreBtn.disabled = false;
       })
       .catch(error => {
-        console.error('Error loading more listings:', error);
-        spinner.classList.remove('spin');
-        loadMoreBtn.disabled = false;
+        console.error('Error loading listings:', error);
+        btn.innerHTML = 'Try Again';
+        btn.disabled = false;
       });
-    });
   }
 });

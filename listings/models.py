@@ -2,7 +2,7 @@ import datetime as dt
 
 from django.contrib.auth.models import User
 from django.db import models
-from django.db.models import Max, Min
+from django.db.models import Max, Min, Q, F
 from django.utils import timezone
 
 # extract coordinates from location string
@@ -208,6 +208,56 @@ class Listing(models.Model):
         verbose_name="Parking Spot Size",
     )
 
+    def has_availability_after_date(self, date):
+        """Check if listing has any availability on or after the specified date"""
+        # Find slots where:
+        # 1. Start date is less than or equal to the provided date (slot has started)
+        # 2. End date is greater than or equal to the provided date (slot continues past this date)
+        return self.slots.filter(start_date__lte=date, end_date__gte=date).exists()
+
+    def has_availability_before_date(self, date):
+        """Check if listing has any availability on or before the specified date"""
+        # Filter slots where:
+        # 1. Start date is less than the provided date (slot starts before this date)
+        # 2. End date is greater than or equal to the provided date (slot continues at least until this date)
+        return self.slots.filter(start_date__lte=date, end_date__gte=date).exists()
+
+    def has_availability_after_time(self, time_obj):
+        """Check if listing has any slot available at or after the specified time"""
+        return self.slots.filter(
+            # Multi-day slot with time after or equal to start time on first day
+            Q(start_date__lt=F("end_date"), start_time__lte=time_obj)
+            |
+            # Multi-day slot with time before end time on last day
+            Q(start_date__lt=F("end_date"), end_time__gt=time_obj)
+            |
+            # Middle days of multi-day slots (always available)
+            Q(start_date__lt=F("end_date"))
+            & ~Q(start_date=F("start_date"))
+            & ~Q(end_date=F("end_date"))
+            |
+            # Same-day slot with the requested time in range
+            Q(start_date=F("end_date"), start_time__lte=time_obj, end_time__gt=time_obj)
+        ).exists()
+
+    def has_availability_before_time(self, time_obj):
+        """Check if listing has any availability before the specified time"""
+        return self.slots.filter(
+            # Multi-day slot with time before or at start time on first day
+            Q(start_date__lt=F("end_date"), start_time__lt=time_obj)
+            |
+            # Multi-day slot with time at or after end time on last day
+            Q(start_date__lt=F("end_date"), end_time__gte=time_obj)
+            |
+            # Middle days of multi-day slots (always available)
+            Q(start_date__lt=F("end_date"))
+            & ~Q(start_date=F("start_date"))
+            & ~Q(end_date=F("end_date"))
+            |
+            # Same-day slot with the requested time in range
+            Q(start_date=F("end_date"), start_time__lt=time_obj, end_time__gte=time_obj)
+        ).exists()
+
 
 class ListingSlot(models.Model):
     listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name="slots")
@@ -237,3 +287,18 @@ class Review(models.Model):
 
     def __str__(self):
         return f"Review for {self.listing.title} by {self.user.username}"
+
+
+class BookmarkedListing(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="bookmarks")
+    listing = models.ForeignKey(
+        Listing, on_delete=models.CASCADE, related_name="bookmarked_by"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "listing")
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user.username} bookmarked {self.listing.title}"

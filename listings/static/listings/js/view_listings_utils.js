@@ -27,43 +27,51 @@ function generateStarRating(rating) {
 
 // Add this new function for the multiple days toggle
 function initializeMultipleDaysToggle() {
-  const multiDaysToggle = document.getElementById("enable-multiple-days");
-  const singleDateContainer = document.getElementById("single-date-container");
-  const multipleDaysContainer = document.getElementById(
-    "multiple-days-container"
-  );
-  const singleStartDate = document.getElementById("single_start_date");
-  const multiStartDate = document.getElementById("multi_start_date");
-  const multiEndDate = document.getElementById("multi_end_date");
-  const singleEndDate = document.getElementById("single_end_date");
-
-  if (multiDaysToggle) {
-    multiDaysToggle.addEventListener("change", function () {
-      if (this.checked) {
-        // Switch to multiple days view
-        singleDateContainer.style.display = "none";
-        multipleDaysContainer.style.display = "flex";
-
-        // Copy date from single to multi if needed
-        if (singleStartDate.value && !multiStartDate.value) {
-          multiStartDate.value = singleStartDate.value;
-          multiEndDate.value = singleStartDate.value;
-        }
-      } else {
-        // Switch to single date view
-        singleDateContainer.style.display = "block";
-        multipleDaysContainer.style.display = "none";
-
-        // Copy date from multi to single if needed
-        if (multiStartDate.value && !singleStartDate.value) {
-          singleStartDate.value = multiStartDate.value;
-        }
-
-        // Update hidden end date to match start date for single day
-        singleEndDate.value = singleStartDate.value;
-      }
-    });
+  const multipleDaysToggle = document.getElementById('multipleDaysToggle');
+  const singleDateContainer = document.getElementById('single-date-container');
+  const multipleDaysContainer = document.getElementById('multiple-days-container');
+  
+  // Get all date inputs
+  const singleStartDate = document.getElementById('single_start_date');
+  const multiStartDate = document.getElementById('multi_start_date');
+  const multiEndDate = document.getElementById('multi_end_date');
+  const realStartDate = document.getElementById('real_start_date');
+  const realEndDate = document.getElementById('real_end_date');
+  
+  // Function to update the hidden inputs
+  function updateHiddenInputs() {
+    if (multipleDaysToggle.checked) {
+      // Multiple days mode
+      realStartDate.value = multiStartDate.value;
+      realEndDate.value = multiEndDate.value;
+    } else {
+      // Single day mode
+      realStartDate.value = singleStartDate.value;
+      realEndDate.value = singleStartDate.value; // End date equals start date in single mode
+    }
   }
+  
+  // Set up toggle event
+  multipleDaysToggle.addEventListener('change', function() {
+    if (this.checked) {
+      // Multiple days selected
+      singleDateContainer.style.display = 'none';
+      multipleDaysContainer.style.display = 'flex';
+    } else {
+      // Single day selected
+      singleDateContainer.style.display = 'block';
+      multipleDaysContainer.style.display = 'none';
+    }
+    updateHiddenInputs();
+  });
+  
+  // Update hidden inputs when any date changes
+  singleStartDate.addEventListener('change', updateHiddenInputs);
+  multiStartDate.addEventListener('change', updateHiddenInputs);
+  multiEndDate.addEventListener('change', updateHiddenInputs);
+  
+  // Initialize on page load
+  updateHiddenInputs();
 }
 
 function toggleFilterPanel() {
@@ -398,24 +406,6 @@ function initializePopover() {
   var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
     return new bootstrap.Popover(popoverTriggerEl);
   });
-}
-
-function setupDateSyncForSingleBooking() {
-  const singleStartDate = document.getElementById("single_start_date");
-  const singleEndDate = document.getElementById("single_end_date");
-
-  if (singleStartDate && singleEndDate) {
-    // Set end date to match start date initially
-    if (singleStartDate.value) {
-      singleEndDate.value = singleStartDate.value;
-    }
-
-    // Update end date whenever start date changes
-    singleStartDate.addEventListener("change", function () {
-      singleEndDate.value = this.value;
-      console.log("Synced end date with start date:", this.value);
-    });
-  }
 }
 
 // Separate function to generate popup HTML

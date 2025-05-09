@@ -26,7 +26,8 @@ LOGOUT_REDIRECT_URL = "/accounts/login/"  # Redirects to login after logout
 SECRET_KEY = "django-insecure-y!ckd0em%l#u3ja&a9la938#9l$f50bhye-=-zp7rww1q*qg5l"
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Set DEBUG to True for local development, False for production
+DEBUG = "RDS_DB_NAME" not in os.environ  # True locally, False in production
 
 ALLOWED_HOSTS = [
     "parkeasyintegration.us-east-1.elasticbeanstalk.com",

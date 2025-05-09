@@ -17,12 +17,48 @@ HALF_HOUR_CHOICES = [
 
 # 1. ListingForm: For basic listing details.
 class ListingForm(forms.ModelForm):
-    # Add a nicely formatted choice field for parking spot size
+    # Make each field explicitly required with custom error messages
+    title = forms.CharField(
+        required=True,
+        error_messages={"required": "Please enter a spot title"},
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+    )
+
+    description = forms.CharField(
+        required=True,
+        error_messages={"required": "Please provide a description of your spot"},
+        widget=forms.Textarea(attrs={"class": "form-control", "rows": 5}),
+    )
+
+    location = forms.CharField(
+        required=True,
+        error_messages={"required": "Please select a location on the map"},
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+    )
+
+    rent_per_hour = forms.DecimalField(
+        required=True,
+        min_value=0.01,
+        error_messages={
+            "required": "Please enter the price per hour",
+            "min_value": "Price must be greater than zero",
+            "invalid": "Please enter a valid price",
+        },
+        widget=forms.NumberInput(attrs={"class": "form-control"}),
+    )
+
     parking_spot_size = forms.ChoiceField(
         choices=PARKING_SPOT_SIZES,
         initial="STANDARD",
+        required=True,
+        error_messages={"required": "Please select a parking spot size"},
         widget=forms.Select(attrs={"class": "form-select"}),
         help_text="Select the type of vehicle your parking spot can accommodate",
+    )
+
+    # Add this field to provide time choices to the form
+    time_choices = forms.ChoiceField(
+        choices=HALF_HOUR_CHOICES, required=False, widget=forms.HiddenInput()
     )
 
     class Meta:
@@ -114,6 +150,156 @@ class ListingForm(forms.ModelForm):
         return instance
 
 
+# Add this class after your ListingForm class
+
+
+# Form for recurring listing creation
+class RecurringListingForm(forms.Form):
+    recurring_start_date = forms.DateField(
+        required=True,
+        error_messages={"required": "Start date is required"},
+        widget=forms.DateInput(
+            attrs={
+                "type": "date",
+                "class": "form-control",
+                "min": datetime.today().date().strftime("%Y-%m-%d"),
+            }
+        ),
+    )
+
+    recurring_end_date = forms.DateField(
+        required=False,  # Conditionally required based on pattern
+        error_messages={"required": "End date is required for daily pattern"},
+        widget=forms.DateInput(
+            attrs={
+                "type": "date",
+                "class": "form-control",
+                "min": datetime.today().date().strftime("%Y-%m-%d"),
+            }
+        ),
+    )
+
+    recurring_start_time = forms.ChoiceField(
+        choices=HALF_HOUR_CHOICES,
+        required=True,
+        error_messages={"required": "Start time is required"},
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+
+    recurring_end_time = forms.ChoiceField(
+        choices=HALF_HOUR_CHOICES,
+        required=True,
+        error_messages={"required": "End time is required"},
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+
+    recurring_overnight = forms.BooleanField(required=False)
+
+    recurring_pattern = forms.ChoiceField(
+        choices=[("daily", "Daily"), ("weekly", "Weekly")],
+        required=True,
+        error_messages={"required": "Please select a recurring pattern"},
+        widget=forms.RadioSelect(),
+    )
+
+    recurring_weeks = forms.IntegerField(
+        required=False,  # Conditionally required based on pattern
+        min_value=1,
+        max_value=52,
+        initial=4,
+        error_messages={
+            "required": "Number of weeks is required for weekly pattern",
+            "min_value": "Number of weeks must be at least 1",
+            "max_value": "Number of weeks cannot exceed 52",
+        },
+        widget=forms.NumberInput(attrs={"class": "form-control"}),
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        pattern = cleaned_data.get("recurring_pattern")
+        start_date = cleaned_data.get("recurring_start_date")
+        end_date = cleaned_data.get("recurring_end_date")
+        start_time = cleaned_data.get("recurring_start_time")
+        end_time = cleaned_data.get("recurring_end_time")
+        is_overnight = cleaned_data.get("recurring_overnight", False)
+
+        # Today's date for comparisons
+        today = datetime.today()
+        if hasattr(today, "date"):
+            today = today.date()
+        current_time = datetime.now().time()
+
+        # Start date must not be in the past
+        if start_date and start_date < today:
+            self.add_error("recurring_start_date", "Start date cannot be in the past.")
+
+        # Keep your existing validation for daily pattern
+        if pattern == "daily":
+            # End date is required for daily pattern
+            if not end_date:
+                self.add_error(
+                    "recurring_end_date", "End date is required for daily pattern"
+                )
+
+            # Add the additional validations for end date
+            elif end_date:
+                # End date must not be in the past
+                if end_date < today:
+                    self.add_error(
+                        "recurring_end_date", "End date cannot be in the past."
+                    )
+
+                # Start date must be before or equal to end date
+                if start_date and start_date > end_date:
+                    self.add_error(
+                        "recurring_end_date", "End date cannot be before start date."
+                    )
+
+        elif pattern == "weekly":
+            # Keep your existing validation for weekly pattern
+            weeks = cleaned_data.get("recurring_weeks")
+            if not weeks:
+                self.add_error(
+                    "recurring_weeks", "Number of weeks is required for weekly pattern"
+                )
+
+        # Time validation
+        if start_time and end_time:
+            st = (
+                datetime.strptime(start_time, "%H:%M").time()
+                if isinstance(start_time, str)
+                else start_time
+            )
+            et = (
+                datetime.strptime(end_time, "%H:%M").time()
+                if isinstance(end_time, str)
+                else end_time
+            )
+
+            # If not overnight, end time must be after start time
+            if st >= et and not is_overnight:
+                self.add_error(
+                    "recurring_end_time",
+                    "End time must be later than start time unless overnight is selected.",
+                )
+
+            # If date is today, times must be in the future
+            if start_date and start_date == today:
+                if st <= current_time:
+                    self.add_error(
+                        "recurring_start_time",
+                        "Start time cannot be in the past for today's date.",
+                    )
+                if et <= current_time and not is_overnight:
+                    self.add_error(
+                        "recurring_end_time",
+                        "End time cannot be in the past for today's date.",
+                    )
+
+        return cleaned_data
+
+
 # 2. ListingSlotForm: For each availability interval.
 class ListingSlotForm(forms.ModelForm):
     start_time = forms.ChoiceField(choices=HALF_HOUR_CHOICES)
@@ -152,38 +338,67 @@ class ListingSlotForm(forms.ModelForm):
         end_date = cleaned_data.get("end_date")
         end_time = cleaned_data.get("end_time")
 
+        # Today's date for comparisons
+        today = datetime.today().date()
+
+        # Start date must not be in the past
+        if start_date and start_date < today:
+            self.add_error("start_date", "Start date cannot be in the past.")
+
+        # End date must not be in the past
+        if end_date and end_date < today:
+            self.add_error("end_date", "End date cannot be in the past.")
+
         if start_date and end_date:
+            # Keep your existing validation but convert to field-specific errors
             if start_date > end_date:
-                raise forms.ValidationError("Start date cannot be after end date.")
+                self.add_error("end_date", "End date cannot be before start date.")
 
             if start_date == end_date and start_time and end_time:
                 st = datetime.strptime(start_time, "%H:%M").time()
                 et = datetime.strptime(end_time, "%H:%M").time()
                 if st >= et:
-                    raise forms.ValidationError(
-                        "End time must be later than start time on the same day."
+                    self.add_error(
+                        "end_time",
+                        "End time must be later than start time on the same day.",
                     )
 
-            # Only enforce the "start time in the past" rule for new timeslots
-            today = datetime.today().date()
+            # Keep your existing validation for new timeslots
             if start_date == today and start_time:
                 if not self.instance.pk:  # i.e. newly added slot
                     current_time = datetime.now().time()
                     st = datetime.strptime(start_time, "%H:%M").time()
                     if st <= current_time:
-                        raise forms.ValidationError(
-                            "Start time cannot be in the past for today's date."
+                        self.add_error(
+                            "start_time",
+                            "Start time cannot be in the past for today's date.",
                         )
+
+                # Also validate end time for today
+                if end_date == today and end_time:
+                    if not self.instance.pk:  # i.e. newly added slot
+                        current_time = datetime.now().time()
+                        et = datetime.strptime(end_time, "%H:%M").time()
+                        if et <= current_time:
+                            self.add_error(
+                                "end_time",
+                                "End time cannot be in the past for today's date.",
+                            )
+
         return cleaned_data
 
 
 def validate_non_overlapping_slots(formset):
     """
     Prevent overlapping availability slots within the same listing.
-    This version converts the string times to datetime objects to
-    accurately compare intervals.
+    Instead of raising an exception, adds errors to the relevant form fields.
+    Returns True if no overlaps found, False otherwise.
     """
     intervals = []
+    has_overlap = False
+
+    # First pass: collect intervals
+    valid_forms = []
     for form in formset:
         # Skip forms marked for deletion.
         if form.cleaned_data.get("DELETE"):
@@ -193,14 +408,36 @@ def validate_non_overlapping_slots(formset):
         end_date = form.cleaned_data.get("end_date")
         end_time = form.cleaned_data.get("end_time")
         if start_date and start_time and end_date and end_time:
-            st = datetime.strptime(start_time, "%H:%M").time()
-            et = datetime.strptime(end_time, "%H:%M").time()
+            st = (
+                datetime.strptime(start_time, "%H:%M").time()
+                if isinstance(start_time, str)
+                else start_time
+            )
+            et = (
+                datetime.strptime(end_time, "%H:%M").time()
+                if isinstance(end_time, str)
+                else end_time
+            )
             start_dt = datetime.combine(start_date, st)
             end_dt = datetime.combine(end_date, et)
-            for existing_start, existing_end in intervals:
-                if not (end_dt <= existing_start or start_dt >= existing_end):
-                    raise forms.ValidationError("Availability slots cannot overlap.")
+            valid_forms.append((form, start_dt, end_dt))
             intervals.append((start_dt, end_dt))
+
+    # Second pass: check for overlaps
+    for i, (form, start_dt, end_dt) in enumerate(valid_forms):
+        for j, (other_start, other_end) in enumerate(intervals):
+            # Skip comparing with itself
+            if j == i:
+                continue
+
+            # Check for overlap
+            if not (end_dt <= other_start or start_dt >= other_end):
+                # Add error to the relevant fields
+                form.add_error("start_date", "This slot overlaps with another slot")
+                form.add_error("end_date", "This slot overlaps with another slot")
+                has_overlap = True
+
+    return not has_overlap
 
 
 ListingSlotFormSet = inlineformset_factory(

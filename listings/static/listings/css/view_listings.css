@@ -261,3 +261,14 @@ body {
 
 
 /* Add a transition effect to the outline badge */
+
+
+/* Make the Date help icon use the same color as other icons */
+
+.btn-link.text-secondary {
+    color: #6c757d !important;
+}
+
+.btn-link.text-secondary:hover {
+    color: #495057 !important;
+}

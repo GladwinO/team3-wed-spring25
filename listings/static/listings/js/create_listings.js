@@ -27,13 +27,19 @@ document.addEventListener("DOMContentLoaded", function () {
     // Map click handler function
     function onMapClick(e) {
       console.log("Map clicked at:", e.latlng);
+
+      // Clear any existing error messages first
+      clearLocationErrorMessage();
+
       if (marker) {
         map.removeLayer(marker);
       }
-      marker = L.marker(e.latlng).addTo(map);
 
       // Verify the clicked point is within NYC bounds
       if (isWithinNYC(e.latlng.lat, e.latlng.lng)) {
+        // Create marker at the clicked location
+        marker = L.marker(e.latlng).addTo(map);
+
         // Reverse geocode with Nominatim
         reverseGeocode(e.latlng.lat, e.latlng.lng, {
           onSuccess: (result) => {
@@ -50,8 +56,10 @@ document.addEventListener("DOMContentLoaded", function () {
           },
         });
       } else {
-        map.removeLayer(marker);
-        alert("Please select a location within New York City.");
+        // Instead of alert, show inline error message
+        showLocationErrorMessage(
+          "Please select a location within New York City."
+        );
       }
     }
     map.on("click", onMapClick);
@@ -100,6 +108,16 @@ document.addEventListener("DOMContentLoaded", function () {
       if (!searchInput) return;
       const query = searchInput.value;
 
+      // Clear any existing error messages
+      clearLocationErrorMessage();
+
+      // Show loading indicator
+      const searchButton = document.getElementById("search-location");
+      if (searchButton) {
+        searchButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        searchButton.disabled = true;
+      }
+
       // Call the global searchLocation function from map_utils.js
       searchLocation(query, {
         restrictToNYC: true,
@@ -111,8 +129,79 @@ document.addEventListener("DOMContentLoaded", function () {
           marker = L.marker([result.lat, result.lng]).addTo(map);
           updateLocationField(result.displayName, result.lat, result.lng);
           marker.bindPopup(result.displayName).openPopup();
+
+          // Reset search button
+          if (searchButton) {
+            searchButton.innerHTML =
+              '<i class="fas fa-search me-1"></i> Search';
+            searchButton.disabled = false;
+          }
+        },
+        onOutOfBounds: () => {
+          showLocationErrorMessage(
+            "Location is outside of New York City. Please search for a location within NYC."
+          );
+
+          // Reset search button
+          if (searchButton) {
+            searchButton.innerHTML =
+              '<i class="fas fa-search me-1"></i> Search';
+            searchButton.disabled = false;
+          }
+        },
+        onNotFound: () => {
+          showLocationErrorMessage(
+            "Location not found. Please try a different search term."
+          );
+
+          // Reset search button
+          if (searchButton) {
+            searchButton.innerHTML =
+              '<i class="fas fa-search me-1"></i> Search';
+            searchButton.disabled = false;
+          }
+        },
+        onError: (error) => {
+          showLocationErrorMessage(
+            "Error searching for location. Please try again."
+          );
+          console.error("Search error:", error);
+
+          // Reset search button
+          if (searchButton) {
+            searchButton.innerHTML =
+              '<i class="fas fa-search me-1"></i> Search';
+            searchButton.disabled = false;
+          }
         },
       });
+    }
+
+    // Helper function to show location error message
+    function showLocationErrorMessage(message) {
+      const searchContainer = document.querySelector(".search-container");
+      if (!searchContainer) return;
+
+      // Create error message element if it doesn't exist
+      let errorElement = document.getElementById("location-search-error");
+      if (!errorElement) {
+        errorElement = document.createElement("div");
+        errorElement.id = "location-search-error";
+        errorElement.className = "text-danger mt-2 small";
+        errorElement.innerHTML = `<i class="fas fa-exclamation-circle me-1"></i> ${message}`;
+        searchContainer.appendChild(errorElement);
+      } else {
+        errorElement.innerHTML = `<i class="fas fa-exclamation-circle me-1"></i> ${message}`;
+        errorElement.style.display = "block";
+      }
+    }
+
+    // Helper function to clear location error message
+    function clearLocationErrorMessage() {
+      const errorElement = document.getElementById("location-search-error");
+      if (errorElement) {
+        errorElement.style.display = "none";
+      }
     }
 
     // Load existing location from hidden field if available
@@ -209,48 +298,50 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!formDiv) return;
     const startTimeSelect = formDiv.querySelector('select[name$="start_time"]');
     const endTimeSelect = formDiv.querySelector('select[name$="end_time"]');
+    const startDateInput = formDiv.querySelector('input[name$="start_date"]');
+    const endDateInput = formDiv.querySelector('input[name$="end_date"]');
     const selectedDate = dateInput.value;
     const today = new Date().toISOString().split("T")[0];
-    if (selectedDate === today) {
-      if (startTimeSelect) {
-        filterTimeOptionsForToday(startTimeSelect);
-        const startErrorDiv = startTimeSelect
-          .closest(".mb-3")
-          .querySelector(".invalid-feedback");
-        if (startErrorDiv) startErrorDiv.remove();
-        startTimeSelect.classList.remove("is-invalid");
-      }
-      if (endTimeSelect) {
+
+    // Always filter start time if start date is today
+    if (startDateInput && startDateInput.value === today && startTimeSelect) {
+      filterTimeOptionsForToday(startTimeSelect);
+      const startErrorDiv = startTimeSelect
+        .closest(".mb-3")
+        .querySelector(".invalid-feedback");
+      if (startErrorDiv) startErrorDiv.remove();
+      startTimeSelect.classList.remove("is-invalid");
+    } else if (startTimeSelect) {
+      // Reset start time options if date is not today
+      Array.from(startTimeSelect.options).forEach((opt) => {
+        opt.disabled = false;
+        opt.title = "";
+      });
+    }
+
+    // Only filter end time if end date is today AND is the same as start date
+    if (endDateInput && endDateInput.value === today && endTimeSelect) {
+      // Only apply time restrictions if the dates are the same
+      if (!startDateInput || startDateInput.value === endDateInput.value) {
         filterTimeOptionsForToday(endTimeSelect);
-        const endErrorDiv = endTimeSelect
-          .closest(".mb-3")
-          .querySelector(".invalid-feedback");
-        if (endErrorDiv) endErrorDiv.remove();
-        endTimeSelect.classList.remove("is-invalid");
-      }
-    } else {
-      if (startTimeSelect) {
-        Array.from(startTimeSelect.options).forEach((opt) => {
-          opt.disabled = false;
-          opt.title = "";
-        });
-        startTimeSelect.classList.remove("is-invalid");
-        const startErrorDiv = startTimeSelect
-          .closest(".mb-3")
-          .querySelector(".invalid-feedback");
-        if (startErrorDiv) startErrorDiv.remove();
-      }
-      if (endTimeSelect) {
+      } else {
+        // If end date is today but different from start date, don't filter past times
         Array.from(endTimeSelect.options).forEach((opt) => {
           opt.disabled = false;
           opt.title = "";
         });
-        endTimeSelect.classList.remove("is-invalid");
-        const endErrorDiv = endTimeSelect
-          .closest(".mb-3")
-          .querySelector(".invalid-feedback");
-        if (endErrorDiv) endErrorDiv.remove();
       }
+      const endErrorDiv = endTimeSelect
+        .closest(".mb-3")
+        .querySelector(".invalid-feedback");
+      if (endErrorDiv) endErrorDiv.remove();
+      endTimeSelect.classList.remove("is-invalid");
+    } else if (endTimeSelect) {
+      // Reset end time options if date is not today
+      Array.from(endTimeSelect.options).forEach((opt) => {
+        opt.disabled = false;
+        opt.title = "";
+      });
     }
   }
 
@@ -259,10 +350,13 @@ document.addEventListener("DOMContentLoaded", function () {
     const formDiv = timeSelect.closest(".slot-form");
     if (!formDiv) return;
     const dateInput = formDiv.querySelector('input[type="date"]');
-    if (
-      dateInput &&
-      dateInput.value === new Date().toISOString().split("T")[0]
-    ) {
+    const isStartTime = timeSelect.name.includes("start_time");
+    const startDateInput = formDiv.querySelector('input[name$="start_date"]');
+    const endDateInput = formDiv.querySelector('input[name$="end_date"]');
+    const today = new Date().toISOString().split("T")[0];
+
+    // For start time, always filter if date is today
+    if (isStartTime && startDateInput && startDateInput.value === today) {
       filterTimeOptionsForToday(timeSelect);
       if (timeSelect.options[timeSelect.selectedIndex].disabled) {
         event.preventDefault();
@@ -272,40 +366,13 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  // Validate that end time is after start time for a slot form
-  function validateEndTime(formDiv) {
-    const startDate = formDiv.querySelector('input[name$="start_date"]').value;
-    const endDate = formDiv.querySelector('input[name$="end_date"]').value;
-    const startTime = formDiv.querySelector('select[name$="start_time"]').value;
-    const endTime = formDiv.querySelector('select[name$="end_time"]').value;
-    const endTimeSelect = formDiv.querySelector('select[name$="end_time"]');
-    if (startDate && endDate && startTime && endTime) {
-      const startDateTime = new Date(startDate + "T" + startTime);
-      const endDateTime = new Date(endDate + "T" + endTime);
-      const formGroup = endTimeSelect.closest(".mb-3");
-      let errorDiv = formGroup.querySelector(".invalid-feedback");
-      if (endDateTime <= startDateTime) {
-        if (!errorDiv) {
-          errorDiv = document.createElement("div");
-          errorDiv.className = "invalid-feedback d-block";
-          formGroup.appendChild(errorDiv);
-        }
-        errorDiv.textContent = "End time must be after start time";
-        endTimeSelect.classList.add("is-invalid");
-        return false;
-      } else {
-        if (errorDiv) errorDiv.remove();
-        endTimeSelect.classList.remove("is-invalid");
-        return true;
-      }
-    }
-    return true;
-  }
-
   // Check overlapping time slots before submission
   function checkOverlappingSlots() {
     const forms = document.querySelectorAll(".slot-form");
     const intervals = [];
+    let has_overlaps = false;
+
+    // First check for slots with invalid time configurations
     for (const formDiv of forms) {
       const startDateVal = formDiv.querySelector(
         "input[name$='start_date']"
@@ -317,22 +384,42 @@ document.addEventListener("DOMContentLoaded", function () {
       const endTimeVal = formDiv.querySelector(
         "select[name$='end_time']"
       ).value;
+
       if (startDateVal && startTimeVal && endDateVal && endTimeVal) {
         const start = new Date(startDateVal + "T" + startTimeVal);
         const end = new Date(endDateVal + "T" + endTimeVal);
+
         if (start >= end) {
-          alert("Each slot's start time must be before its end time.");
+          // We handle this with field validation already
           return false;
         }
-        for (const interval of intervals) {
-          if (!(end <= interval.start || start >= interval.end)) {
-            alert("Availability slots cannot overlap.");
-            return false;
-          }
-        }
-        intervals.push({ start, end });
+
+        intervals.push({ start, end, form: formDiv });
       }
     }
+
+    // Check for overlapping slots
+    for (let i = 0; i < intervals.length; i++) {
+      for (let j = i + 1; j < intervals.length; j++) {
+        if (
+          !(
+            intervals[i].end <= intervals[j].start ||
+            intervals[i].start >= intervals[j].end
+          )
+        ) {
+          // Visually indicate the overlap
+          const form1 = intervals[i].form;
+          const form2 = intervals[j].form;
+
+          // Add visual indication of overlap
+          form1.classList.add("border-danger");
+          form2.classList.add("border-danger");
+          has_overlaps = true;
+        }
+      }
+    }
+
+    // Allow form submission even with overlaps - server will validate and show proper errors
     return true;
   }
 
@@ -428,7 +515,6 @@ document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll('input[type="date"]').forEach((dateInput) => {
       dateInput.addEventListener("change", () => {
         handleDateChange(dateInput);
-        validateEndTime(dateInput.closest(".slot-form"));
       });
       handleDateChange(dateInput);
     });
@@ -437,7 +523,6 @@ document.addEventListener("DOMContentLoaded", function () {
       .forEach((timeSelect) => {
         timeSelect.addEventListener("change", (event) => {
           handleTimeChange(timeSelect);
-          validateEndTime(timeSelect.closest(".slot-form"));
           if (timeSelect.options[timeSelect.selectedIndex].disabled) {
             event.preventDefault();
             event.stopPropagation();
@@ -452,12 +537,37 @@ document.addEventListener("DOMContentLoaded", function () {
   document
     .getElementById("create-listing-form")
     .addEventListener("submit", function (event) {
-      let isValid = true;
-      document.querySelectorAll(".slot-form").forEach((formDiv) => {
-        if (!validateEndTime(formDiv)) isValid = false;
-      });
-      if (!isValid || !checkOverlappingSlots()) {
+      // Do client-side validation but don't prevent submission
+      // This allows both client and server validation
+      document.querySelectorAll(".slot-form").forEach((formDiv) => {});
+
+      // Check for Django validation errors
+      const hasErrors = document.querySelectorAll(".text-danger").length > 0;
+
+      // Only prevent submission for critical overlapping slots
+      if (checkOverlappingSlots() === false) {
         event.preventDefault();
+      }
+    });
+
+  // Update the form submit handler to preserve form state
+  document
+    .getElementById("create-listing-form")
+    .addEventListener("submit", function (event) {
+      // Get the current form mode
+      const isRecurring =
+        document.getElementById("is_recurring").value === "true";
+
+      // Only validate the relevant part of the form based on mode
+      if (isRecurring) {
+        // For recurring mode, we don't need to validate slots
+        // Just make sure hidden field is set correctly
+        document.getElementById("is_recurring").value = "true";
+      } else {
+        // Check for overlapping slots only in single mode
+        if (checkOverlappingSlots() === false) {
+          event.preventDefault();
+        }
       }
     });
 
@@ -523,4 +633,160 @@ document.addEventListener("DOMContentLoaded", function () {
   if (typeof ListingFormUtils !== "undefined") {
     ListingFormUtils.initializeEvChargerFields();
   }
+
+  // Recurring listing functionality
+  const toggleRecurringBtn = document.getElementById("toggle-recurring");
+  const recurringPatternContainer = document.getElementById(
+    "recurring-pattern-container"
+  );
+  const isRecurringField = document.getElementById("is_recurring");
+  const patternDaily = document.getElementById("pattern_daily");
+  const patternWeekly = document.getElementById("pattern_weekly");
+  const dailyPatternFields = document.getElementById("daily-pattern-fields");
+  const weeklyPatternFields = document.getElementById("weekly-pattern-fields");
+  const toggleInfoText = document.querySelector("#toggle-info-text");
+  const singleInfoText = document.querySelector("#single-info-text");
+
+  // Initialize form based on server-provided is_recurring value
+  function initializeRecurringState() {
+    console.log(
+      "Initializing recurring state, current value:",
+      isRecurringField.value
+    );
+
+    // Check if an element with data-is-recurring="true" exists (server-side flag)
+    const serverIsRecurring =
+      document.querySelector('[data-is-recurring="true"]') !== null;
+
+    // Either use the hidden field or the data attribute
+    const shouldBeRecurring =
+      isRecurringField.value === "true" || serverIsRecurring;
+
+    console.log("Should be recurring:", shouldBeRecurring);
+
+    if (shouldBeRecurring) {
+      console.log("Setting UI to recurring mode");
+      // Set the hidden field
+      isRecurringField.value = "true";
+
+      // Set the UI to recurring mode
+      recurringPatternContainer.style.display = "block";
+      if (slotFormsContainer) slotFormsContainer.style.display = "none";
+      if (addSlotBtn) addSlotBtn.style.display = "none";
+
+      // Update the button
+      toggleRecurringBtn.innerHTML =
+        '<i class="fas fa-calendar-day me-1"></i> One-Time Slots';
+      toggleRecurringBtn.classList.remove("btn-outline-primary");
+      toggleRecurringBtn.classList.add("btn-outline-secondary");
+
+      // Change the info text
+      if (toggleInfoText) {
+        toggleInfoText.innerHTML =
+          '<i class="fas fa-info-circle"></i> Create a listing in a single interval or multiple different intervals.';
+      }
+      if (singleInfoText) {
+        singleInfoText.style.display = "none";
+      }
+
+      // Make sure we show the correct pattern fields
+      if (patternDaily && patternDaily.checked) {
+        if (dailyPatternFields) dailyPatternFields.style.display = "block";
+        if (weeklyPatternFields) weeklyPatternFields.style.display = "none";
+      } else if (patternWeekly && patternWeekly.checked) {
+        if (dailyPatternFields) dailyPatternFields.style.display = "none";
+        if (weeklyPatternFields) weeklyPatternFields.style.display = "block";
+      }
+    }
+  }
+
+  // Call this function on page load
+  if (toggleRecurringBtn && isRecurringField) {
+    initializeRecurringState();
+  }
+
+  // Modified toggle-recurring event listener
+  if (toggleRecurringBtn) {
+    toggleRecurringBtn.addEventListener("click", function () {
+      // Check the current state using the hidden field
+      if (isRecurringField.value !== "true") {
+        // Switch to recurring mode
+        recurringPatternContainer.style.display = "block";
+        slotFormsContainer.style.display = "none"; // Hide all slot forms
+        addSlotBtn.style.display = "none";
+        toggleRecurringBtn.innerHTML =
+          '<i class="fas fa-calendar-day me-1"></i> One-Time Slots';
+        toggleRecurringBtn.classList.replace(
+          "btn-outline-primary",
+          "btn-outline-secondary"
+        );
+        isRecurringField.value = "true";
+
+        // Change the info text
+        if (toggleInfoText) {
+          toggleInfoText.innerHTML =
+            '<i class="fas fa-info-circle"></i> Create a listing in a single interval or multiple different intervals.';
+        }
+        if (singleInfoText) {
+          singleInfoText.style.display = "none";
+        }
+
+        // Enable recurring form fields
+        recurringPatternContainer
+          .querySelectorAll("input, select")
+          .forEach((field) => {
+            field.disabled = false;
+          });
+      } else {
+        // Switch back to single mode
+        recurringPatternContainer.style.display = "none";
+        slotFormsContainer.style.display = "block"; // Show all slot forms
+        addSlotBtn.style.display = "inline-block";
+        toggleRecurringBtn.innerHTML =
+          '<i class="fas fa-redo me-1"></i> Make Recurring';
+        toggleRecurringBtn.classList.replace(
+          "btn-outline-secondary",
+          "btn-outline-primary"
+        );
+        isRecurringField.value = "false";
+
+        // Restore original info text
+        if (toggleInfoText) {
+          toggleInfoText.innerHTML =
+            '<i class="fas fa-info-circle"></i> Create multiple availability slots following a pattern';
+        }
+        if (singleInfoText) {
+          singleInfoText.style.display = "block";
+        }
+
+        // Don't disable fields - just hide them
+        // This ensures they're still submitted with the form
+        recurringPatternContainer.style.display = "none";
+      }
+    });
+  }
+
+  // Pattern toggle functionality
+  if (patternDaily && patternWeekly) {
+    patternDaily.addEventListener("change", function () {
+      if (this.checked) {
+        dailyPatternFields.style.display = "block";
+        weeklyPatternFields.style.display = "none";
+      }
+    });
+
+    patternWeekly.addEventListener("change", function () {
+      if (this.checked) {
+        dailyPatternFields.style.display = "none";
+        weeklyPatternFields.style.display = "block";
+      }
+    });
+  }
+
+  // Make sure this is one of the last things that runs
+  setTimeout(function () {
+    if (toggleRecurringBtn && isRecurringField) {
+      initializeRecurringState();
+    }
+  }, 0);
 }); // End DOMContentLoaded

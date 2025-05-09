@@ -1,37 +1,30 @@
-{% extends 'base.html' %}
-{% load widget_tweaks %}
-{% block title %}Book {{ listing.title }}{% endblock %}
-{% block content %}
+{% extends 'base.html' %} {% load widget_tweaks %} {% block title %}Book {{ listing.title }}{% endblock %} {% block content %}
 <div class="container mt-5">
 
     <!-- Error Messages -->
-    {% if error_messages %}
-        {% for message in error_messages %}
-            <div class="alert alert-danger">
-                <i class="fas fa-exclamation-triangle me-2"></i> {{ message }}
-            </div>
-        {% endfor %}
-    {% endif %}
+    {% if error_messages %} {% for message in error_messages %}
+    <div class="alert alert-danger">
+        <i class="fas fa-exclamation-triangle me-2"></i> {{ message }}
+    </div>
+    {% endfor %} {% endif %}
 
     <!-- Success Messages -->
-    {% if success_messages %}
-        {% for message in success_messages %}
-            <div class="alert alert-success">
-                <i class="fas fa-check-circle me-2"></i> {{ message }}
-            </div>
-        {% endfor %}
-    {% endif %}
-    
+    {% if success_messages %} {% for message in success_messages %}
+    <div class="alert alert-success">
+        <i class="fas fa-check-circle me-2"></i> {{ message }}
+    </div>
+    {% endfor %} {% endif %}
+
     <!-- Header with back button -->
     <div class="d-flex align-items-center mb-4">
         {% if request.GET.source == 'user_listings' and request.GET.username %}
-            <a href="{% url 'user_listings' username=request.GET.username %}" class="btn btn-sm btn-outline-secondary me-3">
-                <i class="fas fa-arrow-left me-1"></i> Back
-            </a>
+        <a href="{% url 'user_listings' username=request.GET.username %}" class="btn btn-sm btn-outline-secondary me-3">
+            <i class="fas fa-arrow-left me-1"></i> Back
+        </a>
         {% else %}
-            <a href="{% url 'view_listings' %}" class="btn btn-sm btn-outline-secondary me-3">
-                <i class="fas fa-arrow-left me-1"></i> Back
-            </a>
+        <a href="{% url 'view_listings' %}" class="btn btn-sm btn-outline-secondary me-3">
+            <i class="fas fa-arrow-left me-1"></i> Back
+        </a>
         {% endif %}
         <h2 class="flex-grow-1 text-center mb-0">Book: {{ listing.title }}</h2>
         <!-- Empty div to balance the layout -->
@@ -53,6 +46,22 @@
                             ${{ listing.rent_per_hour }}/hour
                         </span>
                     </p>
+
+                    <!-- Reviews Section -->
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-star text-secondary me-2"></i>
+                            <span class="me-2">Reviews:</span>
+                            <div class="rating-stars-sm me-2" data-rating="{{ listing.avg_rating|default:0 }}"></div>
+                            {% if listing.avg_rating %}
+                            <span class="badge bg-warning text-dark">{{ listing.avg_rating|floatformat:1 }}/5</span>
+                            <span class="badge bg-light text-muted ms-1">{{ listing.rating_count }} {% if listing.rating_count == 1 %}rating{% else %}ratings{% endif %}</span> {% else %}
+                            <span class="text-muted small">No ratings yet</span> {% endif %}
+                        </div>
+                        <a href="{% url 'listing_reviews' listing.id %}" class="btn btn-secondary btn-sm mt-2">
+                            <i class="fas fa-comment me-1"></i> View Reviews
+                        </a>
+                    </div>
                 </div>
                 <div class="col-md-6">
                     {% if listing.slots.all %}
@@ -62,19 +71,13 @@
                     <ul class="list-unstyled">
                         {% for slot in listing.slots.all|dictsort:"start_date" %}
                         <li class="mb-2">
-                            <i class="far fa-calendar-alt text-secondary me-2"></i>
-                            {{ slot.start_date|date:"M d, Y" }}
-                            {{ slot.start_time|time:"g:i A" }}
-                            &mdash;
-                            {{ slot.end_date|date:"M d, Y" }}
-                            {{ slot.end_time|time:"g:i A" }}
+                            <i class="far fa-calendar-alt text-secondary me-2"></i> {{ slot.start_date|date:"M d, Y" }} {{ slot.start_time|time:"g:i A" }} &mdash; {{ slot.end_date|date:"M d, Y" }} {{ slot.end_time|time:"g:i A" }}
                         </li>
                         {% endfor %}
                     </ul>
                     {% else %}
                     <p class="text-muted">
-                        <i class="fas fa-exclamation-circle me-2"></i>
-                        No availability slots added.
+                        <i class="fas fa-exclamation-circle me-2"></i> No availability slots added.
                     </p>
                     {% endif %}
                 </div>
@@ -89,8 +92,7 @@
         <ul class="mb-0 mt-2">
             {% for field, errors in booking_form.errors.items %}
             <li>{{ errors|join:", " }}</li>
-            {% endfor %}
-            {% for error in slot_formset.non_form_errors %}
+            {% endfor %} {% for error in slot_formset.non_form_errors %}
             <li>{{ error }}</li>
             {% endfor %}
         </ul>
@@ -115,8 +117,7 @@
 
                 {% for field in booking_form %}
                 <div class="mb-3">
-                    <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
-                    {{ field|add_class:"form-control" }}
+                    <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label> {{ field|add_class:"form-control" }}
                 </div>
                 {% endfor %}
 
@@ -144,15 +145,12 @@
                             <div class="card-body p-3">
                                 <div class="d-flex justify-content-between align-items-center mb-3">
                                     <h5 class="mb-0">
-                                        <i class="fas fa-clock text-secondary me-2"></i>
-                                        Interval {{ forloop.counter }}
+                                        <i class="fas fa-clock text-secondary me-2"></i> Interval {{ forloop.counter }}
                                     </h5>
                                     {% if forloop.counter > 1 %}
                                     <div class="delete-interval">
                                         {{ form.DELETE|add_class:"form-check-input d-none" }}
-                                        <label for="{{ form.DELETE.id_for_label }}" 
-                                               class="text-danger" 
-                                               style="cursor:pointer; font-size:1.2rem;">
+                                        <label for="{{ form.DELETE.id_for_label }}" class="text-danger" style="cursor:pointer; font-size:1.2rem;">
                                             <i class="fas fa-times"></i>
                                         </label>
                                     </div>
@@ -164,28 +162,24 @@
                                         <div class="mb-3">
                                             <label for="{{ form.start_date.id_for_label }}" class="form-label">
                                                 Start Date
-                                            </label>
-                                            {{ form.start_date|add_class:"form-control" }}
+                                            </label> {{ form.start_date|add_class:"form-control" }}
                                         </div>
                                         <div class="mb-3">
                                             <label for="{{ form.start_time.id_for_label }}" class="form-label">
                                                 Start Time
-                                            </label>
-                                            {{ form.start_time|add_class:"form-select" }}
+                                            </label> {{ form.start_time|add_class:"form-select" }}
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <div class="mb-3">
                                             <label for="{{ form.end_date.id_for_label }}" class="form-label">
                                                 End Date
-                                            </label>
-                                            {{ form.end_date|add_class:"form-control" }}
+                                            </label> {{ form.end_date|add_class:"form-control" }}
                                         </div>
                                         <div class="mb-3">
                                             <label for="{{ form.end_time.id_for_label }}" class="form-label">
                                                 End Time
-                                            </label>
-                                            {{ form.end_time|add_class:"form-select" }}
+                                            </label> {{ form.end_time|add_class:"form-select" }}
                                         </div>
                                     </div>
                                 </div>
@@ -204,22 +198,19 @@
                                 <div class="col-md-4">
                                     <label for="{{ recurring_form.start_date.id_for_label }}" class="form-label">
                                         Start Date
-                                    </label>
-                                    {{ recurring_form.start_date|add_class:"form-control" }}
+                                    </label> {{ recurring_form.start_date|add_class:"form-control" }}
                                 </div>
                                 <!-- Start Time -->
                                 <div class="col-md-4">
                                     <label for="{{ recurring_form.start_time.id_for_label }}" class="form-label">
                                         Start Time
-                                    </label>
-                                    {{ recurring_form.start_time|add_class:"form-select" }}
+                                    </label> {{ recurring_form.start_time|add_class:"form-select" }}
                                 </div>
                                 <!-- End Time -->
                                 <div class="col-md-4">
                                     <label for="{{ recurring_form.end_time.id_for_label }}" class="form-label">
                                         End Time
-                                    </label>
-                                    {{ recurring_form.end_time|add_class:"form-select" }}
+                                    </label> {{ recurring_form.end_time|add_class:"form-select" }}
                                 </div>
                             </div>
 
@@ -227,9 +218,7 @@
                                 <!-- Overnight checkbox -->
                                 <div class="col-12">
                                     <div class="form-check">
-                                        <input class="form-check-input" 
-                                               type="checkbox" id="recurring_overnight" 
-                                               name="recurring-overnight">
+                                        <input class="form-check-input" type="checkbox" id="recurring_overnight" name="recurring-overnight">
                                         <label class="form-check-label" for="recurring_overnight">
                                             <i class="fas fa-moon me-1"></i> Overnight booking
                                         </label>
@@ -244,12 +233,7 @@
                                     <div class="d-flex align-items-center">
                                         <!-- Daily Pattern -->
                                         <div class="form-check form-check-inline me-4">
-                                            <input class="form-check-input" 
-                                                   type="radio" 
-                                                   name="recurring_pattern" 
-                                                   id="pattern_daily" 
-                                                   value="daily" 
-                                                   checked>
+                                            <input class="form-check-input" type="radio" name="recurring_pattern" id="pattern_daily" value="daily" checked>
                                             <label class="form-check-label" for="pattern_daily">
                                                 Daily
                                             </label>
@@ -257,17 +241,12 @@
                                         <!-- Daily Pattern Fields -->
                                         <div id="daily-pattern-fields" class="me-4">
                                             <div class="input-group">
-                                                <span class="input-group-text">Until</span>
-                                                {{ recurring_form.end_date|add_class:"form-control" }}
+                                                <span class="input-group-text">Until</span> {{ recurring_form.end_date|add_class:"form-control" }}
                                             </div>
                                         </div>
                                         <!-- Weekly Pattern -->
                                         <div class="form-check form-check-inline me-4">
-                                            <input class="form-check-input" 
-                                                   type="radio" 
-                                                   name="recurring_pattern" 
-                                                   id="pattern_weekly" 
-                                                   value="weekly">
+                                            <input class="form-check-input" type="radio" name="recurring_pattern" id="pattern_weekly" value="weekly">
                                             <label class="form-check-label" for="pattern_weekly">
                                                 Weekly
                                             </label>
@@ -276,12 +255,7 @@
                                         <div id="weekly-pattern-fields" style="display: none;">
                                             <div class="input-group">
                                                 <span class="input-group-text">For</span>
-                                                <input type="number" 
-                                                       class="form-control" 
-                                                       id="recurring_weeks" 
-                                                       name="recurring-weeks" 
-                                                       min="1" max="52" value="4" 
-                                                       required>
+                                                <input type="number" class="form-control" id="recurring_weeks" name="recurring-weeks" min="1" max="52" value="4" required>
                                                 <span class="input-group-text">weeks</span>
                                             </div>
                                         </div>
@@ -307,189 +281,191 @@
         </div>
     </div>
 </div>
-{% endblock %}
-{% block scripts %}
+{% endblock %} {% block scripts %}
 <script>
-document.addEventListener("DOMContentLoaded", function() {
-    console.log("Booking page JS loaded.");
+    document.addEventListener("DOMContentLoaded", function() {
+        console.log("Booking page JS loaded.");
 
-    // 1) On page load, forcibly remove 'required', 'min', and 'max' from all 
-    //    recurring fields so that hidden fields do NOT block submission.
-    const recurringContainer = document.getElementById("recurring-booking-container");
-    if (recurringContainer) {
-        recurringContainer.querySelectorAll("input, select").forEach(function(field) {
-            field.removeAttribute("required");
-            field.removeAttribute("min");
-            field.removeAttribute("max");
-            field.disabled = true; // hidden by default, so disable it
-        });
-    }
-
-    // 2) Helper: get reference date from the first single-booking slot
-    function getReferenceDate() {
-        const firstForm = document.querySelector(".booking-slot-form");
-        if (!firstForm) return "";
-        const refField = firstForm.querySelector("input[name$='start_date']");
-        return (refField && refField.value) ? refField.value : "";
-    }
-
-    // 3) Deletion logic for slot intervals
-    function handleDelete(deleteCheckbox) {
-        const formDiv = deleteCheckbox.closest('.booking-slot-form');
-        if (formDiv) {
-            formDiv.remove();
-            updateFormIndices();
+        // 1) On page load, forcibly remove 'required', 'min', and 'max' from all 
+        //    recurring fields so that hidden fields do NOT block submission.
+        const recurringContainer = document.getElementById("recurring-booking-container");
+        if (recurringContainer) {
+            recurringContainer.querySelectorAll("input, select").forEach(function(field) {
+                field.removeAttribute("required");
+                field.removeAttribute("min");
+                field.removeAttribute("max");
+                field.disabled = true; // hidden by default, so disable it
+            });
         }
-    }
-    function updateFormIndices() {
-        const totalFormsInput = document.querySelector('[name$="-TOTAL_FORMS"]');
-        const formDivs = document.querySelectorAll('.booking-slot-form');
-        formDivs.forEach((formDiv, index) => {
-            const heading = formDiv.querySelector('h5');
-            if (heading) {
-                heading.textContent = `Interval ${index + 1}`;
+
+        // 2) Helper: get reference date from the first single-booking slot
+        function getReferenceDate() {
+            const firstForm = document.querySelector(".booking-slot-form");
+            if (!firstForm) return "";
+            const refField = firstForm.querySelector("input[name$='start_date']");
+            return (refField && refField.value) ? refField.value : "";
+        }
+
+        // 3) Deletion logic for slot intervals
+        function handleDelete(deleteCheckbox) {
+            const formDiv = deleteCheckbox.closest('.booking-slot-form');
+            if (formDiv) {
+                formDiv.remove();
+                updateFormIndices();
             }
-            formDiv.querySelectorAll('input, select, textarea, label').forEach(el => {
+        }
+
+        function updateFormIndices() {
+            const totalFormsInput = document.querySelector('[name$="-TOTAL_FORMS"]');
+            const formDivs = document.querySelectorAll('.booking-slot-form');
+            formDivs.forEach((formDiv, index) => {
+                const heading = formDiv.querySelector('h5');
+                if (heading) {
+                    heading.textContent = `Interval ${index + 1}`;
+                }
+                formDiv.querySelectorAll('input, select, textarea, label').forEach(el => {
+                    if (el.name) {
+                        el.name = el.name.replace(/-\d+-/, `-${index}-`);
+                    }
+                    if (el.id) {
+                        el.id = el.id.replace(/_\d+_/, `_${index}_`);
+                    }
+                });
+            });
+            if (totalFormsInput) {
+                totalFormsInput.value = formDivs.length.toString();
+            }
+        }
+
+        function attachDeleteListener(formDiv) {
+            const deleteCheckbox = formDiv.querySelector('input[name$="DELETE"]');
+            if (deleteCheckbox) {
+                deleteCheckbox.addEventListener('change', function() {
+                    if (this.checked) {
+                        handleDelete(this);
+                    }
+                });
+            }
+        }
+
+        // 4) Time slot updating logic
+        function attachDateListeners(formDiv) {
+            formDiv.querySelectorAll("input[name$='start_date'], input[name$='end_date']")
+                .forEach(function(dateField) {
+                    function handler() {
+                        console.log("Date field", dateField.name, "updated to:", dateField.value);
+                        updateTimeChoices(dateField);
+                    }
+                    dateField.addEventListener("input", handler);
+                    dateField.addEventListener("change", handler);
+                    dateField.addEventListener("blur", handler);
+                    if (dateField.value) {
+                        updateTimeChoices(dateField);
+                    }
+                });
+        }
+
+        function updateTimeChoices(dateField) {
+            const selectedDate = dateField.value;
+            if (!selectedDate) return;
+            const listingId = "{{ listing.id }}";
+            const refDate = getReferenceDate();
+            let extraParam = "";
+            if (dateField.name.endsWith("end_date")) {
+                const formDiv = dateField.closest(".booking-slot-form");
+                const startTimeSelect = formDiv.querySelector("select[name$='start_time']");
+                if (startTimeSelect && startTimeSelect.value) {
+                    extraParam = "&min_time=" + encodeURIComponent(startTimeSelect.value);
+                }
+            } else if (dateField.name.endsWith("start_date")) {
+                const formDiv = dateField.closest(".booking-slot-form");
+                const endDateField = formDiv.querySelector("input[name$='end_date']");
+                const endTimeSelect = formDiv.querySelector("select[name$='end_time']");
+                if (endDateField && endTimeSelect && endDateField.value === selectedDate && endTimeSelect.value) {
+                    extraParam = "&max_time=" + encodeURIComponent(endTimeSelect.value);
+                }
+            }
+            if (refDate) {
+                extraParam += "&ref_date=" + encodeURIComponent(refDate);
+            }
+            const url = "{% url 'available_times' %}?listing_id=" + listingId +
+                "&date=" + selectedDate + extraParam;
+            console.log("Fetching available times from URL:", url);
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    console.log("Available times for " + selectedDate + ":", data.times);
+                    const formDiv = dateField.closest(".booking-slot-form");
+                    if (!formDiv) return;
+                    if (dateField.name.endsWith("start_date")) {
+                        const startTimeSelect = formDiv.querySelector("select[name$='start_time']");
+                        if (startTimeSelect) {
+                            startTimeSelect.innerHTML = '<option value="">Select start time</option>';
+                            data.times.forEach(function(time) {
+                                const option = document.createElement("option");
+                                option.value = time;
+                                option.textContent = time;
+                                startTimeSelect.appendChild(option);
+                            });
+                        }
+                    } else if (dateField.name.endsWith("end_date")) {
+                        const endTimeSelect = formDiv.querySelector("select[name$='end_time']");
+                        if (endTimeSelect) {
+                            endTimeSelect.innerHTML = '<option value="">Select end time</option>';
+                            data.times.forEach(function(time) {
+                                const option = document.createElement("option");
+                                option.value = time;
+                                option.textContent = time;
+                                endTimeSelect.appendChild(option);
+                            });
+                        }
+                    }
+                })
+                .catch(error => console.error("Error fetching available times:", error));
+        }
+
+        // Attach listeners to the existing booking-slot forms
+        document.querySelectorAll(".booking-slot-form").forEach(function(formDiv) {
+            attachDateListeners(formDiv);
+            attachDeleteListener(formDiv);
+        });
+
+        // 5) Dynamically add new booking slots for single-booking
+        const addSlotBtn = document.getElementById("add-booking-slot");
+        const slotFormsContainer = document.getElementById("booking-slot-forms");
+        const totalFormsInput = document.querySelector('[name$="-TOTAL_FORMS"]');
+        if (!addSlotBtn || !slotFormsContainer || !totalFormsInput) {
+            console.error("Required elements for adding new booking slot not found.");
+            return;
+        }
+        const formDivs = slotFormsContainer.getElementsByClassName("booking-slot-form");
+        if (formDivs.length === 0) {
+            console.error("No booking slot form found to clone.");
+            return;
+        }
+        const blankForm = formDivs[0].cloneNode(true);
+        blankForm.querySelectorAll("input, select, textarea").forEach(el => el.value = "");
+        addSlotBtn.addEventListener("click", function() {
+            let formCount = parseInt(totalFormsInput.value);
+            let newForm = blankForm.cloneNode(true);
+            newForm.querySelectorAll("input, select, textarea, label").forEach(function(el) {
                 if (el.name) {
-                    el.name = el.name.replace(/-\d+-/, `-${index}-`);
+                    el.name = el.name.replace(/-\d+-/, `-${formCount}-`);
                 }
                 if (el.id) {
-                    el.id = el.id.replace(/_\d+_/, `_${index}_`);
+                    el.id = el.id.replace(/_\d+_/, `_${formCount}_`);
                 }
             });
-        });
-        if (totalFormsInput) {
-            totalFormsInput.value = formDivs.length.toString();
-        }
-    }
-    function attachDeleteListener(formDiv) {
-        const deleteCheckbox = formDiv.querySelector('input[name$="DELETE"]');
-        if (deleteCheckbox) {
-            deleteCheckbox.addEventListener('change', function() {
-                if (this.checked) {
-                    handleDelete(this);
-                }
-            });
-        }
-    }
-
-    // 4) Time slot updating logic
-    function attachDateListeners(formDiv) {
-        formDiv.querySelectorAll("input[name$='start_date'], input[name$='end_date']")
-               .forEach(function(dateField) {
-            function handler() {
-                console.log("Date field", dateField.name, "updated to:", dateField.value);
-                updateTimeChoices(dateField);
-            }
-            dateField.addEventListener("input", handler);
-            dateField.addEventListener("change", handler);
-            dateField.addEventListener("blur", handler);
-            if (dateField.value) {
-                updateTimeChoices(dateField);
-            }
-        });
-    }
-    function updateTimeChoices(dateField) {
-        const selectedDate = dateField.value;
-        if (!selectedDate) return;
-        const listingId = "{{ listing.id }}";
-        const refDate = getReferenceDate();
-        let extraParam = "";
-        if (dateField.name.endsWith("end_date")) {
-            const formDiv = dateField.closest(".booking-slot-form");
-            const startTimeSelect = formDiv.querySelector("select[name$='start_time']");
-            if (startTimeSelect && startTimeSelect.value) {
-                extraParam = "&min_time=" + encodeURIComponent(startTimeSelect.value);
-            }
-        } else if (dateField.name.endsWith("start_date")) {
-            const formDiv = dateField.closest(".booking-slot-form");
-            const endDateField = formDiv.querySelector("input[name$='end_date']");
-            const endTimeSelect = formDiv.querySelector("select[name$='end_time']");
-            if (endDateField && endTimeSelect && endDateField.value === selectedDate && endTimeSelect.value) {
-                extraParam = "&max_time=" + encodeURIComponent(endTimeSelect.value);
-            }
-        }
-        if (refDate) {
-            extraParam += "&ref_date=" + encodeURIComponent(refDate);
-        }
-        const url = "{% url 'available_times' %}?listing_id=" + listingId +
-                    "&date=" + selectedDate + extraParam;
-        console.log("Fetching available times from URL:", url);
-        fetch(url)
-            .then(response => response.json())
-            .then(data => {
-                console.log("Available times for " + selectedDate + ":", data.times);
-                const formDiv = dateField.closest(".booking-slot-form");
-                if (!formDiv) return;
-                if (dateField.name.endsWith("start_date")) {
-                    const startTimeSelect = formDiv.querySelector("select[name$='start_time']");
-                    if (startTimeSelect) {
-                        startTimeSelect.innerHTML = '<option value="">Select start time</option>';
-                        data.times.forEach(function(time) {
-                            const option = document.createElement("option");
-                            option.value = time;
-                            option.textContent = time;
-                            startTimeSelect.appendChild(option);
-                        });
-                    }
-                } else if (dateField.name.endsWith("end_date")) {
-                    const endTimeSelect = formDiv.querySelector("select[name$='end_time']");
-                    if (endTimeSelect) {
-                        endTimeSelect.innerHTML = '<option value="">Select end time</option>';
-                        data.times.forEach(function(time) {
-                            const option = document.createElement("option");
-                            option.value = time;
-                            option.textContent = time;
-                            endTimeSelect.appendChild(option);
-                        });
-                    }
-                }
-            })
-            .catch(error => console.error("Error fetching available times:", error));
-    }
-
-    // Attach listeners to the existing booking-slot forms
-    document.querySelectorAll(".booking-slot-form").forEach(function(formDiv) {
-        attachDateListeners(formDiv);
-        attachDeleteListener(formDiv);
-    });
-
-    // 5) Dynamically add new booking slots for single-booking
-    const addSlotBtn = document.getElementById("add-booking-slot");
-    const slotFormsContainer = document.getElementById("booking-slot-forms");
-    const totalFormsInput = document.querySelector('[name$="-TOTAL_FORMS"]');
-    if (!addSlotBtn || !slotFormsContainer || !totalFormsInput) {
-        console.error("Required elements for adding new booking slot not found.");
-        return;
-    }
-    const formDivs = slotFormsContainer.getElementsByClassName("booking-slot-form");
-    if (formDivs.length === 0) {
-        console.error("No booking slot form found to clone.");
-        return;
-    }
-    const blankForm = formDivs[0].cloneNode(true);
-    blankForm.querySelectorAll("input, select, textarea").forEach(el => el.value = "");
-    addSlotBtn.addEventListener("click", function() {
-        let formCount = parseInt(totalFormsInput.value);
-        let newForm = blankForm.cloneNode(true);
-        newForm.querySelectorAll("input, select, textarea, label").forEach(function(el) {
-            if (el.name) {
-                el.name = el.name.replace(/-\d+-/, `-${formCount}-`);
-            }
-            if (el.id) {
-                el.id = el.id.replace(/_\d+_/, `_${formCount}_`);
-            }
-        });
-        // Attach the delete interval UI
-        const deleteDiv = document.createElement('div');
-        deleteDiv.className = 'delete-interval';
-        deleteDiv.innerHTML = `
+            // Attach the delete interval UI
+            const deleteDiv = document.createElement('div');
+            deleteDiv.className = 'delete-interval';
+            deleteDiv.innerHTML = `
             <input type="checkbox" name="form-${formCount}-DELETE" id="id_form-${formCount}-DELETE">
             <label for="id_form-${formCount}-DELETE" class="text-danger">Delete this interval</label>
         `;
-        const headerDiv = newForm.querySelector('.d-flex');
-        if (headerDiv) {
-            headerDiv.innerHTML = `
+            const headerDiv = newForm.querySelector('.d-flex');
+            if (headerDiv) {
+                headerDiv.innerHTML = `
                 <h5 class="mb-0">
                     <i class="fas fa-clock text-secondary me-2"></i>Interval ${formCount + 1}
                 </h5>
@@ -500,100 +476,100 @@ document.addEventListener("DOMContentLoaded", function() {
                     </label>
                 </div>
             `;
-        }
-        slotFormsContainer.appendChild(newForm);
-        totalFormsInput.value = (formCount + 1).toString();
-        attachDateListeners(newForm);
-        attachDeleteListener(newForm);
-    });
+            }
+            slotFormsContainer.appendChild(newForm);
+            totalFormsInput.value = (formCount + 1).toString();
+            attachDateListeners(newForm);
+            attachDeleteListener(newForm);
+        });
 
-    // 6) Recurring booking toggle logic
-    const toggleRecurringBtn = document.getElementById("toggle-recurring");
-    const singleBookingContainer = document.getElementById("single-booking-container");
-    const recurringBookingContainer = document.getElementById("recurring-booking-container");
-    const isRecurringField = document.getElementById("is_recurring");
-    const patternDaily = document.getElementById("pattern_daily");
-    const patternWeekly = document.getElementById("pattern_weekly");
-    const dailyPatternFields = document.getElementById("daily-pattern-fields");
-    const weeklyPatternFields = document.getElementById("weekly-pattern-fields");
+        // 6) Recurring booking toggle logic
+        const toggleRecurringBtn = document.getElementById("toggle-recurring");
+        const singleBookingContainer = document.getElementById("single-booking-container");
+        const recurringBookingContainer = document.getElementById("recurring-booking-container");
+        const isRecurringField = document.getElementById("is_recurring");
+        const patternDaily = document.getElementById("pattern_daily");
+        const patternWeekly = document.getElementById("pattern_weekly");
+        const dailyPatternFields = document.getElementById("daily-pattern-fields");
+        const weeklyPatternFields = document.getElementById("weekly-pattern-fields");
 
-    toggleRecurringBtn.addEventListener("click", function() {
-        if (singleBookingContainer.style.display !== "none") {
-            // Switch to recurring
-            singleBookingContainer.style.display = "none";
-            recurringBookingContainer.style.display = "block";
-            addSlotBtn.style.display = "none";
-            toggleRecurringBtn.innerHTML = '<i class="fas fa-calendar-day me-1"></i> Single Booking';
-            toggleRecurringBtn.classList.replace("btn-outline-primary", "btn-outline-secondary");
-            isRecurringField.value = "true";
+        toggleRecurringBtn.addEventListener("click", function() {
+            if (singleBookingContainer.style.display !== "none") {
+                // Switch to recurring
+                singleBookingContainer.style.display = "none";
+                recurringBookingContainer.style.display = "block";
+                addSlotBtn.style.display = "none";
+                toggleRecurringBtn.innerHTML = '<i class="fas fa-calendar-day me-1"></i> Single Booking';
+                toggleRecurringBtn.classList.replace("btn-outline-primary", "btn-outline-secondary");
+                isRecurringField.value = "true";
 
-            // Re-enable recurring fields and optionally restore their constraints
-            recurringContainer.querySelectorAll("input, select").forEach(field => {
-                field.disabled = false;
-                // For now, we only reintroduce 'required' if daily is checked and it's the end_date
-                if (field.id === "id_recurring-end_date" && patternDaily.checked) {
-                    field.setAttribute("required", "required");
+                // Re-enable recurring fields and optionally restore their constraints
+                recurringContainer.querySelectorAll("input, select").forEach(field => {
+                    field.disabled = false;
+                    // For now, we only reintroduce 'required' if daily is checked and it's the end_date
+                    if (field.id === "id_recurring-end_date" && patternDaily.checked) {
+                        field.setAttribute("required", "required");
+                    }
+                    // If your listing enforces min/max date, you could re-add them here, e.g.:
+                    // field.setAttribute("min", "2023-05-09");
+                    // field.setAttribute("max", "2023-05-19");
+                });
+            } else {
+                // Switch to single booking
+                singleBookingContainer.style.display = "block";
+                recurringBookingContainer.style.display = "none";
+                addSlotBtn.style.display = "inline-block";
+                toggleRecurringBtn.innerHTML = '<i class="fas fa-redo me-1"></i> Make Recurring';
+                toggleRecurringBtn.classList.replace("btn-outline-secondary", "btn-outline-primary");
+                isRecurringField.value = "false";
+
+                // Remove 'required', 'min', 'max', and disable them so the user isn't blocked
+                recurringContainer.querySelectorAll("input:not([type=hidden]), select").forEach(field => {
+                    field.removeAttribute("required");
+                    field.removeAttribute("min");
+                    field.removeAttribute("max");
+                    field.disabled = true;
+                });
+            }
+        });
+
+        // 7) Pattern daily/weekly toggles
+        patternDaily.addEventListener("change", function() {
+            if (this.checked) {
+                dailyPatternFields.style.display = "block";
+                weeklyPatternFields.style.display = "none";
+                const endDateField = document.getElementById("id_recurring-end_date");
+                if (endDateField && isRecurringField.value === "true") {
+                    endDateField.setAttribute("required", "required");
                 }
-                // If your listing enforces min/max date, you could re-add them here, e.g.:
-                // field.setAttribute("min", "2023-05-09");
-                // field.setAttribute("max", "2023-05-19");
-            });
-        } else {
-            // Switch to single booking
-            singleBookingContainer.style.display = "block";
-            recurringBookingContainer.style.display = "none";
-            addSlotBtn.style.display = "inline-block";
-            toggleRecurringBtn.innerHTML = '<i class="fas fa-redo me-1"></i> Make Recurring';
-            toggleRecurringBtn.classList.replace("btn-outline-secondary", "btn-outline-primary");
-            isRecurringField.value = "false";
-
-            // Remove 'required', 'min', 'max', and disable them so the user isn't blocked
-            recurringContainer.querySelectorAll("input:not([type=hidden]), select").forEach(field => {
-                field.removeAttribute("required");
-                field.removeAttribute("min");
-                field.removeAttribute("max");
-                field.disabled = true;
-            });
-        }
-    });
-
-    // 7) Pattern daily/weekly toggles
-    patternDaily.addEventListener("change", function() {
-        if (this.checked) {
-            dailyPatternFields.style.display = "block";
-            weeklyPatternFields.style.display = "none";
-            const endDateField = document.getElementById("id_recurring-end_date");
-            if (endDateField && isRecurringField.value === "true") {
-                endDateField.setAttribute("required", "required");
             }
-        }
-    });
-    patternWeekly.addEventListener("change", function() {
-        if (this.checked) {
-            dailyPatternFields.style.display = "none";
-            weeklyPatternFields.style.display = "block";
-            const endDateField = document.getElementById("id_recurring-end_date");
-            if (endDateField) {
-                endDateField.removeAttribute("required");
+        });
+        patternWeekly.addEventListener("change", function() {
+            if (this.checked) {
+                dailyPatternFields.style.display = "none";
+                weeklyPatternFields.style.display = "block";
+                const endDateField = document.getElementById("id_recurring-end_date");
+                if (endDateField) {
+                    endDateField.removeAttribute("required");
+                }
             }
+        });
+
+        // 8) Set default date values for recurring start/end
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = tomorrow.toISOString().split('T')[0];
+        const nextWeek = new Date();
+        nextWeek.setDate(nextWeek.getDate() + 7);
+        const nextWeekStr = nextWeek.toISOString().split('T')[0];
+        const recurringStartDate = document.getElementById("id_recurring-start_date");
+        const recurringEndDate = document.getElementById("id_recurring-end_date");
+        if (recurringStartDate) {
+            recurringStartDate.value = tomorrowStr;
+        }
+        if (recurringEndDate) {
+            recurringEndDate.value = nextWeekStr;
         }
     });
-
-    // 8) Set default date values for recurring start/end
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
-    const nextWeek = new Date();
-    nextWeek.setDate(nextWeek.getDate() + 7);
-    const nextWeekStr = nextWeek.toISOString().split('T')[0];
-    const recurringStartDate = document.getElementById("id_recurring-start_date");
-    const recurringEndDate = document.getElementById("id_recurring-end_date");
-    if (recurringStartDate) {
-        recurringStartDate.value = tomorrowStr;
-    }
-    if (recurringEndDate) {
-        recurringEndDate.value = nextWeekStr;
-    }
-});
 </script>
 {% endblock %}

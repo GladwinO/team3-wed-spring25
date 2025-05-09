@@ -1,154 +1,119 @@
 <div class="listings-container">
   {% for listing in listings %}
-  <div
-    class="card shadow-sm mb-2 border-0 position-relative"
-    data-location="{{ listing.location }}"
-    data-location-name="{{ listing.location_name }}"
-    data-price="{{ listing.rent_per_hour }}"
-    data-title="{{ listing.title }}"
-    data-rating="{{ listing.avg_rating|default:0 }}"
-    data-id="{{ listing.id }}"
-  >
+  <div class="card listing-card shadow-sm mb-2 border-0 position-relative"
+       id="card-{{ listing.id }}"
+       data-listing-id="{{ listing.id }}"
+       data-location="{{ listing.location }}"
+       data-location-name="{{ listing.location_name }}"
+       data-price="{{ listing.rent_per_hour }}"
+       data-title="{{ listing.title }}"
+       data-rating="{{ listing.avg_rating|default:0 }}"
+       data-id="{{ listing.id }}">
+
     {% if user != listing.user %}
-    <a href="{% url 'report_item' 'listing' listing.id %}" 
-       class="report-icon" 
-       title="Report this listing">
+    <a href="{% url 'report_item' 'listing' listing.id %}" class="report-icon" title="Report this listing">
       <i class="fas fa-flag"></i>
     </a>
+
+    {% if user.is_authenticated %}
+    <a href="{% url 'toggle_bookmark' listing.id %}"
+       class="bookmark-icon ajax-bookmark {% if listing.id in bookmarked_listings or is_bookmarks_page %}active{% endif %}">
+      <i class="{% if listing.id in bookmarked_listings or is_bookmarks_page %}fas{% else %}far{% endif %} fa-bookmark"></i>
+    </a>
     {% endif %}
-    
+    {% endif %}
+
     <div class="card-body p-2">
-      <!-- Header: Title and Badge -->
-      <div class="d-flex align-items-center mb-1">
+      <!-- Title and Username on same line -->
+      <div class="d-flex align-items-center flex-wrap mb-2">
         <h5 class="card-title fw-bold mb-0 me-2">{{ listing.title }}</h5>
         {% if user == listing.user %}
-        <!-- For own listings: link to personal profile -->
-        <a href="{% url 'profile' %}" class="text-decoration-none">
-          <span class="badge bg-secondary outline-badge">
-            <i class="fas fa-user-check me-1"></i> Your listing
-          </span>
+        <a href="{% url 'profile' %}" class="badge bg-secondary outline-badge text-decoration-none">
+          <i class="fas fa-user-check me-1"></i> Your listing
         </a>
         {% else %}
-        <!-- For others' listings: link to public profile -->
-        <a href="{% url 'public_profile' listing.user.username %}" class="text-decoration-none">
-          <span class="badge bg-light text-dark border outline-badge">
-            <i class="fas fa-user me-1"></i> {{ listing.user.username }}
-          </span>
+        <a href="{% url 'public_profile' listing.user.username %}" class="badge bg-light text-dark border outline-badge text-decoration-none">
+          <i class="fas fa-user me-1"></i> {{ listing.user.username }}
         </a>
         {% endif %}
       </div>
 
       <div class="row g-2">
-        <!-- Left column: Location & Description -->
+        <!-- Left Column -->
         <div class="col-md-6">
-          <!-- Location with icon -->
-          <p class="card-text d-flex align-items-center mb-1 small">
-            <i class="fas fa-map-marker-alt text-secondary me-1"></i>
-            <span>{{ listing.location_name }}</span>
-            {% if listing.distance is not None %}
+          <p class="card-text small mb-1">
+            <i class="fas fa-map-marker-alt text-secondary me-1"></i>{{ listing.location_name }}
+            {% if listing.distance %}
             <span class="badge bg-info text-dark ms-1">
-              <i class="fas fa-route me-1"></i>{{ listing.distance|floatformat:1}} km
+              <i class="fas fa-route me-1"></i>{{ listing.distance|floatformat:1 }} km
             </span>
             {% endif %}
           </p>
 
-          <!-- Description with icon -->
-          <p class="card-text small text-muted mb-1 description-text">
-            <i class="fas fa-info-circle text-secondary me-1"></i>
-            {{ listing.description|truncatechars:80 }}
+          <p class="card-text text-muted small mb-1 description-text">
+            <i class="fas fa-info-circle text-secondary me-1"></i> {{ listing.description|truncatechars:80 }}
           </p>
 
-          <!-- EV Charger if available -->
           {% if listing.has_ev_charger %}
-          <div>
-            <span class="badge bg-warning text-dark small">
-              <i class="fas fa-charging-station me-1"></i>
-              {{ listing.get_charger_level_display }}
-              <i class="fas fa-plug mx-1"></i>
-              {{ listing.get_connector_type_display }}
-            </span>
-          </div>
+          <span class="badge bg-warning text-dark small d-inline-block mb-1">
+            <i class="fas fa-charging-station me-1"></i>{{ listing.get_charger_level_display }}
+            <i class="fas fa-plug mx-1"></i>{{ listing.get_connector_type_display }}
+          </span>
           {% endif %}
-          
-          <!-- Parking Spot Size if not standard -->
+
           {% if listing.parking_spot_size != "STANDARD" %}
-          <div class="mt-1">
-            <span class="badge {% if listing.parking_spot_size == "COMPACT" %}bg-info{% elif listing.parking_spot_size == "OVERSIZE" %}bg-primary{% elif listing.parking_spot_size == "COMMERCIAL" %}bg-danger{% endif %} text-white small">
-              <i class="fas fa-car-side me-1"></i>
-              {{ listing.get_parking_spot_size_display }}
-            </span>
-          </div>
+          <span class="badge {% if listing.parking_spot_size == "COMPACT" %}bg-info{% elif listing.parking_spot_size == "OVERSIZE" %}bg-primary{% elif listing.parking_spot_size == "COMMERCIAL" %}bg-danger{% endif %} text-white small">
+            <i class="fas fa-car-side me-1"></i>{{ listing.get_parking_spot_size_display }}
+          </span>
           {% endif %}
         </div>
 
-        <!-- Middle column: Price & Rating -->
+        <!-- Middle Column -->
         <div class="col-md-3">
-          <!-- Price with icon -->
-          <p class="card-text d-flex align-items-center mb-1 small">
-            <i class="fas fa-tag text-secondary me-1"></i>
-            <span>${{ listing.rent_per_hour }}/hour</span>
+          <p class="card-text small mb-1">
+            <i class="fas fa-tag text-secondary me-1"></i>${{ listing.rent_per_hour }}/hour
           </p>
 
-          <!-- Rating Block -->
-          <div class="mb-1">
-            <p class="card-text mb-1 small fw-bold">Rating:</p>
-            <div class="d-flex align-items-center flex-wrap">
-              <div
-                class="rating-stars-sm me-1"
-                data-rating="{{ listing.avg_rating }}"
-              ></div>
-              {% if listing.avg_rating %}
-              <span class="badge bg-warning text-dark fw-bold small"
-                >{{ listing.avg_rating|floatformat:1 }}</span
-              >
-              <span class="badge bg-light text-muted ms-1 small">
-                {{ listing.rating_count }} {% if listing.rating_count == 1 %}rating{% else %}ratings{% endif %}
-              </span>
-              {% else %}
-              <span class="badge bg-light text-muted small"
-                >No ratings yet</span
-              >
-              {% endif %}
-            </div>
+          <div class="rating-stars-sm" data-rating="{{ listing.avg_rating }}"></div>
+          {% if listing.avg_rating %}
+          <div class="mt-1">
+            <span class="badge bg-warning text-dark fw-bold small">{{ listing.avg_rating|floatformat:1 }}</span>
+            <span class="badge bg-light text-muted ms-1 small">{{ listing.rating_count }} rating{{ listing.rating_count|pluralize }}</span>
           </div>
+          {% else %}
+          <div class="text-muted small mt-1">No ratings yet</div>
+          {% endif %}
         </div>
 
-        <!-- Right column: Buttons -->
-        <div class="col-md-3">
-          <div class="d-flex flex-column h-100 justify-content-end">
+        <!-- Right Column -->
+        <div class="col-md-3 d-flex flex-column justify-content-end">
+          <div class="d-grid gap-2">
             {% if user != listing.user %}
-            <div class="d-grid gap-2">
-              {% if not is_public_view or listing.user_profile_available %}
-              <!-- Regular "Book Now" button -->
-              <a
-                href="{% url 'book_listing' listing.id %}?source={% if source %}{{ source }}{% else %}view_listings{% endif %}&username={% if username %}{{ username }}{% endif %}"
-                class="btn btn-primary btn-sm"
-              >
+              {% if listing.user_profile_available %}
+              <a href="{% url 'book_listing' listing.id %}?source={{ source|default:'view_listings' }}&username={{ username|default:'' }}" class="btn btn-primary btn-sm">
                 <i class="fas fa-calendar-check me-1"></i> Book Now
               </a>
-              {% elif is_public_view %}
-              <!-- "No Longer Available" message (only in public_view) -->
+              {% else %}
               <div class="alert alert-secondary py-2 mb-0 text-center">
                 <i class="fas fa-ban me-1"></i> No Longer Available
               </div>
               {% endif %}
-
-              <a
-                href="{% url 'listing_reviews' listing.id %}"
-                class="btn btn-secondary btn-sm"
-              >
+              <a href="{% url 'listing_reviews' listing.id %}" class="btn btn-secondary btn-sm">
                 <i class="fas fa-comment me-1"></i> Reviews
               </a>
-            </div>
             {% else %}
-            <div class="d-grid">
-              <a
-                href="{% url 'listing_reviews' listing.id %}"
-                class="btn btn-secondary btn-sm"
-              >
+              {% if listing.user_profile_available %}
+              <a href="{% url 'edit_listing' listing.id %}" class="btn btn-primary btn-sm">
+                <i class="fas fa-edit me-1"></i> Edit Listing
+              </a>
+              {% else %}
+              <div class="alert alert-secondary py-2 mb-0 text-center">
+                <i class="fas fa-ban me-1"></i> No Longer Available
+              </div>
+              {% endif %}
+              <a href="{% url 'listing_reviews' listing.id %}" class="btn btn-secondary btn-sm">
                 <i class="fas fa-comment me-1"></i> Reviews
               </a>
-            </div>
             {% endif %}
           </div>
         </div>
@@ -159,18 +124,17 @@
   <div class="text-center p-3">
     <p class="mb-0">No parking spots available that match your filters.</p>
   </div>
-  {% endfor %} {% if has_next %}
+  {% endfor %}
+
+  {% if has_next %}
   <div class="text-center my-2">
-    <button
-      id="load-more-btn"
-      class="btn btn-sm btn-accent"
-      data-next-page="{{ next_page }}"
-    >
+    <button id="load-more-btn" class="btn btn-sm btn-accent" data-next-page="{{ next_page }}">
       Load More Listings
     </button>
   </div>
   {% endif %}
 </div>
+
 
 <style>
   /* Compact card styles */
@@ -187,7 +151,7 @@
 
   /* Smaller star ratings */
   .rating-stars-sm {
-    font-size: 0.75rem;
+    font-size: 2rem;
     line-height: 1;
     color: #ffc107;
   }
@@ -238,6 +202,7 @@
     justify-content: center;
     border-radius: 50%;
     transition: all 0.2s ease;
+    text-decoration: none; /* Remove underline */
   }
   
   .report-icon:hover {
@@ -245,26 +210,32 @@
     background-color: rgba(220, 53, 69, 0.1);
     transform: scale(1.1);
   }
+
+  .bookmark-icon {
+    position: absolute;
+    top: 8px;
+    right: 32px; /* Position next to report icon */
+    font-size: 0.85rem; /* Slightly larger */
+    color: rgba(222, 170, 12, 0.9); /* Darker gold with less transparency */
+    z-index: 10;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    text-decoration: none; /* Add this line to remove the underline */
+  }
+
+  .bookmark-icon:hover {
+    color: #ffc107; /* Bright yellow on hover */
+    background-color: rgba(255, 193, 7, 0.15); /* Light yellow background */
+    transform: scale(1.1); /* Small zoom effect */
+  }
+
+  .bookmark-icon.active {
+    color: #ffc107; /* Bright yellow when active */
+    text-shadow: 0 0 3px rgba(255, 193, 7, 0.4); /* Subtle glow effect */
+  }
 </style>
-
-<script>
-  // Initialize star ratings
-  document.addEventListener("DOMContentLoaded", function () {
-    document.querySelectorAll(".rating-stars-sm").forEach(function (el) {
-      const rating = parseFloat(el.getAttribute("data-rating")) || 0;
-      let stars = "";
-
-      for (let i = 1; i <= 5; i++) {
-        if (i <= rating) {
-          stars += '<i class="fas fa-star"></i>';
-        } else if (i <= rating + 0.5) {
-          stars += '<i class="fas fa-star-half-alt"></i>';
-        } else {
-          stars += '<i class="far fa-star"></i>';
-        }
-      }
-
-      el.innerHTML = stars;
-    });
-  });
-</script>

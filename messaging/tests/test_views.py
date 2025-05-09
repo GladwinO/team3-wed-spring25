@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 from messaging.models import Message
 from listings.models import Listing
 from booking.models import Booking
+from django import forms
 
 
 class MessagingViewsTest(TestCase):
@@ -164,8 +165,8 @@ class ComposeMessagingTests(TestCase):
         self.assertEqual(response.url, reverse("inbox"))
         self.assertEqual(
             response.wsgi_request.session["error_message"],
-            """You don't have any users to message yet. You need to either book
-            a listing or have someone book your listing first.""",
+            "You don't have any users to message yet. You need to either book "
+            "a listing or have someone book your listing first.",
         )
 
     def test_has_listing_no_bookings(self):
@@ -179,8 +180,8 @@ class ComposeMessagingTests(TestCase):
         self.assertEqual(response.url, reverse("inbox"))
         self.assertEqual(
             response.wsgi_request.session["error_message"],
-            """You don't have any users to message yet. You need to either book
-            a listing or have someone book your listing first.""",
+            "You don't have any users to message yet. You need to either book "
+            "a listing or have someone book your listing first.",
         )
 
     def test_renter_can_message_owner(self):
@@ -326,3 +327,106 @@ class ComposeMessagingTests(TestCase):
         # Should stay on form with error
         self.assertEqual(response.status_code, 200)
         self.assertFalse(Message.objects.filter(recipient=self.unrelated_user).exists())
+
+    def test_admin_message_form(self):
+        """Test that users can access the admin message form"""
+        self.client.login(username="stranger", password="strangerpass")
+
+        # Even users with no relationships should be able to access admin message form
+        response = self.client.get(reverse("compose_admin_message"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["is_admin_message"])
+        self.assertIsInstance(
+            response.context["form"].fields["recipient"].widget, forms.HiddenInput
+        )
+
+    def test_send_admin_message(self):
+        """Test sending a message to admin"""
+        self.client.login(username="stranger", password="strangerpass")
+
+        data = {
+            "subject": "Help Request",
+            "body": "I need assistance with my account",
+        }
+
+        response = self.client.post(reverse("compose_admin_message"), data)
+
+        # Should redirect to inbox
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("inbox"))
+
+        # Should create message to admin
+        message = Message.objects.filter(
+            sender=self.unrelated_user, recipient=self.admin_user
+        ).first()
+        self.assertIsNotNone(message)
+        self.assertEqual(message.subject, "[USER SUPPORT MESSAGE] Help Request")
+        self.assertEqual(message.body, "I need assistance with my account")
+
+    def test_admin_can_message_anyone(self):
+        """Test that admin users can message anyone"""
+        self.client.login(username="admin", password="adminpass")
+
+        # Admin should be able to access compose page
+        response = self.client.get(reverse("compose_message"))
+
+        self.assertEqual(response.status_code, 200)
+
+        # All users should be in available recipients
+        recipients_ids = [user.id for user in response.context["available_recipients"]]
+        self.assertIn(self.owner.id, recipients_ids)
+        self.assertIn(self.renter.id, recipients_ids)
+        self.assertIn(self.unrelated_user.id, recipients_ids)
+
+        # Admin should be able to message any user
+        data = {
+            "recipient": self.unrelated_user.id,
+            "subject": "Admin message",
+            "body": "This is an admin message",
+        }
+
+        response = self.client.post(reverse("compose_message"), data)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            Message.objects.filter(
+                sender=self.admin_user, recipient=self.unrelated_user
+            ).exists()
+        )
+
+    def test_reply_to_admin_message(self):
+        """Test replying to an admin message"""
+        # Create an admin message
+        admin_message = Message.objects.create(
+            sender=self.admin_user,
+            recipient=self.unrelated_user,
+            subject="Admin notification",
+            body="Important information",
+        )
+
+        self.client.login(username="stranger", password="strangerpass")
+
+        # View the message
+        response = self.client.get(reverse("message_detail", args=[admin_message.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Reply to Admin")
+
+    def test_admin_sees_admin_label(self):
+        """Test that admin username is labeled with [ADMIN]"""
+        # Create an admin message
+        admin_message = Message.objects.create(
+            sender=self.admin_user,
+            recipient=self.unrelated_user,
+            subject="Admin notification",
+            body="Important information",
+        )
+
+        self.client.login(username="stranger", password="strangerpass")
+
+        # View the message
+        response = self.client.get(reverse("message_detail", args=[admin_message.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "[ADMIN]")

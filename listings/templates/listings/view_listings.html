@@ -30,13 +30,6 @@
 
         <!-- Bottom left: List view panel -->
         <div id="list-panel">
-            <div class="panel-header position-sticky" style="top: 0; z-index: 10; background-color: #f8f9fa;">
-                <h5 class="mb-0">Available Parking Spots</h5>
-                <a href="{% url 'create_listing' %}" class="btn btn-accent btn-sm">
-                    <i class="fas fa-plus me-1"></i> Create a new listing
-                </a>
-            </div>
-
             <div id="list-view-container" style="height: calc(100% - 41px); overflow-y: auto;">
                 <div id="list-view" class="view-container listings-container active-view">
                     {% include "listings/partials/listing_cards.html" with listing=listing %}
@@ -53,6 +46,8 @@
     </div>
 </div>
 
+{% csrf_token %}
+
 {% include "listings/partials/filter_form/filter_form_modal.html" %} {% endblock %} {% block scripts %}
 <!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -60,4 +55,5 @@
 <script src="{% static 'listings/js/map_utils.js' %}"></script>
 <script src="{% static 'listings/js/view_listings_utils.js' %}"></script>
 <script src="{% static 'listings/js/view_listings.js' %}"></script>
+<script src="{% static 'listings/js/bookmarks.js' %}"></script>
 {% endblock %}

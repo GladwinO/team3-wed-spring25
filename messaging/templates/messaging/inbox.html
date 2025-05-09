@@ -20,8 +20,10 @@
   <div class="mb-3">
     <a class="btn btn-primary" href="{% url 'compose_message' %}">Compose New Message</a>
     <a class="btn btn-secondary" href="{% url 'sent_messages' %}">View Sent Messages</a>
+    <a class="btn btn-info" href="{% url 'compose_admin_message' %}">Message Admin</a>
     <small class="text-muted d-block mt-1">
       <i class="fas fa-info-circle"></i> You can message users after booking their listing or when they book your listing.
+      Use the "Message Admin" button to contact site administrators for support.
     </small>
   </div>
   <table class="table table-bordered">
@@ -36,7 +38,7 @@
     <tbody>
       {% for msg in messages_inbox %}
       <tr>
-        <td>{{ msg.sender.username }}</td>
+        <td>{% if msg.sender.is_staff %}[ADMIN] {% endif %}{{ msg.sender.username }}</td>
         <td>
           <a href="{% url 'message_detail' msg.id %}" class="text-info">
             {{ msg.subject|default:"(No Subject)" }}

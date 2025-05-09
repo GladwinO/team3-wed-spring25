@@ -1,178 +1,188 @@
-{% extends 'base.html' %}
-{% load static %}
-{% block title %}My Bookings{% endblock %}
-
-{% block extra_head %}
-<link rel="stylesheet" href="{% static 'booking/css/my_booking.css' %}">
-{% endblock %}
-
-{% block content %}
+{% extends 'base.html' %} {% load static %} {% block title %}My Bookings{% endblock %} {% block extra_head %}
+<link rel="stylesheet" href="{% static 'booking/css/my_booking.css' %}"> {% endblock %} {% block content %}
 <div class="container mt-5">
-  <!-- Page Header -->
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>My Bookings</h2>
-    <a href="{% url 'view_listings' %}" class="btn btn-accent">
-      <i class="fas fa-plus me-1"></i>Book A Spot
-    </a>
-  </div>
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>My Bookings</h2>
+        <a href="{% url 'view_listings' %}" class="btn btn-accent">
+            <i class="fas fa-plus me-1"></i>Book A Spot
+        </a>
+    </div>
 
-  {% if bookings %}
+    {% if bookings %}
     <div class="row">
-      {% for booking in bookings %}
+        {% for booking in bookings %}
         <!-- Changed from col-lg-6 to col-12 for full-width -->
         <div class="col-12 mb-4">
-          <div class="card shadow-sm border-0">
-            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-              <h5 class="mb-0">{{ booking.listing.title }}</h5>
-              {% if booking.status == "PENDING" %}
-                <span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Pending</span>
-              {% elif booking.status == "APPROVED" %}
-                <span class="badge bg-success"><i class="fas fa-check me-1"></i>Approved</span>
-              {% elif booking.status == "DECLINED" %}
-                <span class="badge bg-danger"><i class="fas fa-times me-1"></i>Declined</span>
-              {% endif %}
-            </div>
-            
-            <div class="card-body">
-              <div class="row">
-                <div class="col-md-6">
-                  <!-- Location -->
-                  <p class="d-flex align-items-start mb-2">
-                    <i class="fas fa-map-marker-alt text-secondary me-2 mt-1"></i>
-                    <span>{{ booking.listing.location_name }}</span>
-                  </p>
-                  
-                  <!-- Price -->
-                  <p class="d-flex align-items-center mb-3">
-                    <i class="fas fa-tag text-secondary me-2"></i>
-                    <span class="fw-bold text-info">${{ booking.total_price }}</span>
-                  </p>
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">{{ booking.listing.title }}</h5>
+                    {% if booking.status == "PENDING" %}
+                    <span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Pending</span> {% elif booking.status == "APPROVED" %}
+                    <span class="badge bg-success"><i class="fas fa-check me-1"></i>Approved</span> {% elif booking.status == "DECLINED" %}
+                    <span class="badge bg-danger"><i class="fas fa-times me-1"></i>Declined</span> {% endif %}
+                </div>
 
-                  <!-- Add the badges here -->
-                  <div class="d-flex flex-wrap gap-2 mb-3">
-                    <!-- Parking Spot Size Badge - only show if not standard -->
-                    {% if booking.listing.parking_spot_size != "STANDARD" %}
-                      <span class="badge {% if booking.listing.parking_spot_size == "COMPACT" %}bg-info{% elif booking.listing.parking_spot_size == "OVERSIZE" %}bg-primary{% elif booking.listing.parking_spot_size == "COMMERCIAL" %}bg-danger{% endif %} text-white">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <!-- Location -->
+                            <p class="d-flex align-items-start mb-2">
+                                <i class="fas fa-map-marker-alt text-secondary me-2 mt-1"></i>
+                                <span>{{ booking.listing.location_name }}</span>
+                            </p>
+
+                            <!-- Price -->
+                            <p class="d-flex align-items-center mb-3">
+                                <i class="fas fa-tag text-secondary me-2"></i>
+                                <span class="fw-bold text-info">${{ booking.total_price }}</span>
+                            </p>
+
+                            <!-- Add the badges here -->
+                            <div class="d-flex flex-wrap gap-2 mb-3">
+                                <!-- Parking Spot Size Badge - only show if not standard -->
+                                {% if booking.listing.parking_spot_size != "STANDARD" %}
+                                <span class="badge {% if booking.listing.parking_spot_size == " COMPACT " %}bg-info{% elif booking.listing.parking_spot_size == "OVERSIZE " %}bg-primary{% elif booking.listing.parking_spot_size == "COMMERCIAL " %}bg-danger{% endif %} text-white">
                         <i class="fas fa-car-side me-1"></i>
                         {{ booking.listing.get_parking_spot_size_display }}
-                      </span>
-                    {% endif %}
-                    
-                    <!-- EV Charger Badge -->
-                    {% if booking.listing.has_ev_charger %}
-                      <span class="badge bg-warning text-dark">
+                      </span> {% endif %}
+
+                                <!-- EV Charger Badge -->
+                                {% if booking.listing.has_ev_charger %}
+                                <span class="badge bg-warning text-dark">
                         <i class="fas fa-charging-station me-1"></i>
                         {{ booking.listing.get_charger_level_display }}
                         <i class="fas fa-plug mx-1"></i>
                         {{ booking.listing.get_connector_type_display }}
-                      </span>
-                    {% endif %}
-                  </div>
-                  
-                  <!-- Owner Contact -->
-                  <div class="mb-3">
-                    <div class="d-flex align-items-center mb-2">
-                      <i class="fas fa-user text-secondary me-2"></i>
-                      <span>Owner: 
-                        <a href="{% url 'public_profile' booking.listing.user.username %}" class="owner-link">
-                          <strong>{{ booking.listing.user.username }}</strong>
-                        </a>
-                      </span>
-                      <a href="{% url 'compose_message_to' recipient_id=booking.listing.user.id %}" class="btn btn-xs btn-outline-accent btn-sm ms-2">
-                        <i class="fas fa-envelope me-1"></i> Message
-                      </a>
-                    </div>
-                  </div>
-                </div>
-                
-                <div class="col-md-6">
-                  <!-- Intervals -->
-                  <h6 class="mb-2 text-primary">
-                    <i class="fas fa-calendar-alt me-2"></i>Booking Intervals
-                  </h6>
-                  
-                  {% if booking.slots.all %}
-                    <div class="bg-light p-3 rounded mb-3">
-                      <ul class="list-unstyled mb-0">
-                        {% for slot in booking.slots.all %}
-                          <li class="mb-2 {% if not forloop.last %}border-bottom pb-2{% endif %}">
-                            <div class="d-flex">
-                              <i class="far fa-clock text-secondary me-2 mt-1"></i>
-                              <div>
-                                <strong>{{ slot.start_date|date:"M d, Y" }}</strong> {{ slot.start_time|time:"g:i A" }}
-                                <i class="fas fa-long-arrow-alt-right mx-1"></i>
-                                <strong>{{ slot.end_date|date:"M d, Y" }}</strong> {{ slot.end_time|time:"g:i A" }}
-                              </div>
+                      </span> {% endif %}
                             </div>
-                          </li>
-                        {% endfor %}
-                      </ul>
+
+                            <!-- Owner Contact -->
+                            <div class="mb-3">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="fas fa-user text-secondary me-2"></i>
+                                    <span>Owner: 
+                                        <a href="{% url 'public_profile' booking.listing.user.username %}" class="owner-link">
+                                            <strong>{{ booking.listing.user.username }}</strong>
+                                        </a>
+                                    </span>
+                                    <a href="{% url 'compose_message_to' recipient_id=booking.listing.user.id %}" class="btn btn-xs btn-outline-accent btn-sm ms-2">
+                                        <i class="fas fa-envelope me-1"></i> Message
+                                    </a>
+                                </div>
+                            </div>
+
+                            <!-- Reviews Section -->
+                            <div class="mb-3">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-star text-secondary me-2"></i>
+                                    <span class="me-2">Reviews:</span>
+                                    <div class="rating-stars-sm me-2" data-rating="{{ booking.listing.avg_rating|default:0 }}"></div>
+                                    {% if booking.listing.avg_rating %}
+                                    <span class="badge bg-warning text-dark">{{ booking.listing.avg_rating|floatformat:1 }}/5</span>
+                                    <span class="badge bg-light text-muted ms-1">{{ booking.listing.rating_count }} {% if booking.listing.rating_count == 1 %}rating{% else %}ratings{% endif %}</span> {% else %}
+                                    <span class="text-muted small">No ratings yet</span> {% endif %}
+                                </div>
+                                <a href="{% url 'listing_reviews' booking.listing.id %}" class="btn btn-secondary btn-sm mt-2">
+                                    <i class="fas fa-comment me-1"></i> View Reviews
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <!-- Intervals -->
+                            <h6 class="mb-2 text-primary">
+                                <i class="fas fa-calendar-alt me-2"></i>Booking Intervals
+                            </h6>
+
+                            {% if booking.slots.all %}
+                            <div class="bg-light p-3 rounded mb-3">
+                                <ul class="list-unstyled mb-0">
+                                    {% for slot in booking.slots.all %}
+                                    <li class="mb-2 {% if not forloop.last %}border-bottom pb-2{% endif %}">
+                                        <div class="d-flex">
+                                            <i class="far fa-clock text-secondary me-2 mt-1"></i>
+                                            <div>
+                                                <strong>{{ slot.start_date|date:"M d, Y" }}</strong> {{ slot.start_time|time:"g:i A" }}
+                                                <i class="fas fa-long-arrow-alt-right mx-1"></i>
+                                                <strong>{{ slot.end_date|date:"M d, Y" }}</strong> {{ slot.end_time|time:"g:i A" }}
+                                            </div>
+                                        </div>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            {% else %}
+                            <p class="text-muted fst-italic">
+                                <i class="fas fa-exclamation-circle me-1"></i>No slots defined for this booking.
+                            </p>
+                            {% endif %}
+                        </div>
                     </div>
-                  {% else %}
-                    <p class="text-muted fst-italic">
-                      <i class="fas fa-exclamation-circle me-1"></i>No slots defined for this booking.
-                    </p>
-                  {% endif %}
                 </div>
-              </div>
-            </div>
-            
-            <div class="card-footer bg-white py-3">
-              <div class="d-flex justify-content-between align-items-center">
-                <div>
-                  {% if booking.is_reviewed %}
-                    <span class="badge bg-info"><i class="fas fa-star me-1"></i>Reviewed</span>
-                  {% endif %}
-                  
-                  <!-- Add the report link here -->
-                  <a href="{% url 'report_item' 'listing' booking.listing.id %}" class="text-danger ms-2">
-                    <i class="fas fa-flag"></i> Report this Listing
-                  </a>
-                </div>
-                <div>
-                  <div>
-                    {% if not booking.is_reviewed %}
-                      {% if booking.status == "APPROVED" and booking.is_ongoing %}
-                        <div class="alert alert-success mb-0 py-2 px-3">
-                          <i class="fas fa-car me-1"></i>Active - Enjoy your parking!
+
+                <div class="card-footer bg-white py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            {% if booking.is_reviewed %}
+                            <div class="d-flex align-items-center">
+                                <span class="badge bg-info me-2"><i class="fas fa-star me-1"></i>Reviewed</span>
+                                <div class="d-flex align-items-center">
+                                    <div class="rating-stars-sm me-2" data-rating="{{ booking.review.rating }}"></div>
+                                    <span class="badge bg-warning text-dark">{{ booking.review.rating }}/5</span>
+                                </div>
+                            </div>
+                            {% if booking.review.comment %}
+                            <p class="text-muted mb-0 small mt-2">{{ booking.review.comment }}</p>
+                            {% endif %} {% endif %}
+
+                            <!-- Add the report link here -->
+                            <a href="{% url 'report_item' 'listing' booking.listing.id %}" class="text-danger ms-2">
+                                <i class="fas fa-flag"></i> Report this Listing
+                            </a>
                         </div>
-                      {% elif booking.status == "APPROVED" and booking.is_within_24_hours %}
-                        <div class="alert alert-info mb-0 py-2 px-3">
-                          <i class="fas fa-info-circle me-1"></i>Booked - To make changes please contact owner
+                        <div>
+                            <div>
+                                {% if not booking.is_reviewed %} {% if booking.status == "APPROVED" and booking.is_ongoing %}
+                                <div class="alert alert-success mb-0 py-2 px-3">
+                                    <i class="fas fa-car me-1"></i>Active - Enjoy your parking!
+                                </div>
+                                {% elif booking.status == "APPROVED" and booking.is_within_24_hours %}
+                                <div class="alert alert-info mb-0 py-2 px-3">
+                                    <i class="fas fa-info-circle me-1"></i>Booked - To make changes please contact owner
+                                </div>
+                                {% elif booking.can_be_reviewed %}
+                                <a href="{% url 'review_booking' booking.id %}" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-star me-1"></i>Review
+                                </a>
+                                {% elif booking.status == "DECLINED" %}
+                                <a href="{% url 'cancel_booking' booking.id %}" class="btn btn-danger btn-sm">
+                                    <i class="fas fa-trash me-1"></i>Remove
+                                </a>
+                                {% else %}
+                                <a href="{% url 'cancel_booking' booking.id %}" class="btn btn-danger btn-sm">
+                                    <i class="fas fa-ban me-1"></i>Cancel
+                                </a>
+                                {% endif %} {% endif %}
+                            </div>
                         </div>
-                      {% elif booking.can_be_reviewed %}
-                        <a href="{% url 'review_booking' booking.id %}" class="btn btn-primary btn-sm">
-                          <i class="fas fa-star me-1"></i>Review
-                        </a>
-                      {% elif booking.status == "DECLINED" %}
-                        <a href="{% url 'cancel_booking' booking.id %}" class="btn btn-danger btn-sm">
-                          <i class="fas fa-trash me-1"></i>Remove
-                        </a>
-                      {% else %}
-                        <a href="{% url 'cancel_booking' booking.id %}" class="btn btn-danger btn-sm">
-                          <i class="fas fa-ban me-1"></i>Cancel
-                        </a>
-                      {% endif %}
-                    {% endif %}
-                  </div>
+                    </div>
                 </div>
-              </div>
             </div>
-          </div>
         </div>
-      {% endfor %}
+        {% endfor %}
     </div>
-  {% else %}
+    {% else %}
     <div class="card shadow-sm border-0 text-center p-5">
-      <div class="card-body py-5">
-        <i class="fas fa-calendar-alt fa-4x text-secondary mb-4 opacity-50"></i>
-        <h3>No Bookings Yet</h3>
-        <p class="text-muted mb-4">Find available parking spots and book your first spot now!</p>
-        <a href="{% url 'view_listings' %}" class="btn btn-primary px-4">
-          <i class="fas fa-search me-2"></i>Find Parking Spots
-        </a>
-      </div>
+        <div class="card-body py-5">
+            <i class="fas fa-calendar-alt fa-4x text-secondary mb-4 opacity-50"></i>
+            <h3>No Bookings Yet</h3>
+            <p class="text-muted mb-4">Find available parking spots and book your first spot now!</p>
+            <a href="{% url 'view_listings' %}" class="btn btn-primary px-4">
+                <i class="fas fa-search me-2"></i>Find Parking Spots
+            </a>
+        </div>
     </div>
-  {% endif %}
+    {% endif %}
 </div>
 {% endblock %}

@@ -14,10 +14,7 @@ urlpatterns = [
     path("user/<str:username>/listings/", views.user_listings, name="user_listings"),
     path("map-view-listings/", views.map_view_listings, name="map_view_listings"),
     path("my_listings/", views.my_listings, name="my_listings"),
-    path(
-        "api/user-listings/<str:username>/",
-        views.user_listings_api,
-        name="user_listings_api",
-    ),
     path("map_legend/", views.map_legend, name="map_legend"),
+    path("bookmark/<int:listing_id>/", views.toggle_bookmark, name="toggle_bookmark"),
+    path("bookmarks/", views.bookmarked_listings, name="bookmarked_listings"),
 ]
